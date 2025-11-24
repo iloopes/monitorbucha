@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Bucha Virtual - Controle</title>
+    <link rel="stylesheet" href="/static/style.css?v=2.1">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔌 Sistema de Bucha Virtual</h1>
+            <p class="subtitle">Geração e Controle de Dados Sintéticos + Otimização por Ativo (Markov + NSGA-II)</p>
+        </header>
+
+        <!-- Status da API -->
+        <div class="card status-card">
+            <h2>Status do Sistema</h2>
+            <div id="api-status" class="status-info">
+                <span class="status-indicator" id="status-dot"></span>
+                <span id="status-text">Verificando...</span>
+            </div>
+        </div>
+
+        <!-- Configuração do Banco de Dados -->
+        <div class="card">
+            <h2>⚙️ Configuração do Banco de Dados</h2>
+            <form id="db-config-form">
+                <div class="form-group">
+                    <label for="server">Servidor SQL Server:</label>
+                    <input type="text" id="server" name="server" value="DESKTOP-0L1FQAQ\KUZUSHI" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="database">Nome do Banco:</label>
+                    <input type="text" id="database" name="database" value="MaintenanceDB" required>
+                </div>
+
+                <div class="form-group checkbox-group">
+                    <input type="checkbox" id="trusted-connection" name="trusted_connection" checked>
+                    <label for="trusted-connection">Autenticação Windows (Trusted Connection)</label>
+                </div>
+
+                <div id="credentials" style="display: none;">
+                    <div class="form-group">
+                        <label for="username">Usuário:</label>
+                        <input type="text" id="username" name="username">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password">Senha:</label>
+                        <input type="password" id="password" name="password">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Conectar ao Banco</button>
+                <button type="button" id="init-db-btn" class="btn btn-secondary">Criar Tabelas</button>
+            </form>
+            <div id="db-status" class="result-message"></div>
+        </div>
+
+        <!-- Geração de Dados -->
+        <div class="card">
+            <h2>📊 Gerar Dados Sintéticos</h2>
+            <form id="generate-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="n-bushings">Número de Buchas:</label>
+                        <input type="number" id="n-bushings" name="n_bushings" value="10" min="1" max="100" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="days">Período (dias):</label>
+                        <input type="number" id="days" name="days" value="30" min="1" max="365" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="frequency">Frequência (horas):</label>
+                        <input type="number" id="frequency" name="frequency_hours" value="1" min="1" max="24" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="degradation-rate">Taxa de Degradação:</label>
+                        <select id="degradation-rate" name="degradation_rate">
+                            <option value="low">Baixa</option>
+                            <option value="medium" selected>Média</option>
+                            <option value="high">Alta</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="scenario-name">Nome do Cenário (opcional):</label>
+                    <input type="text" id="scenario-name" name="scenario_name" placeholder="Ex: cenario_teste_01">
+                </div>
+
+                <div class="form-group checkbox-group">
+                    <input type="checkbox" id="save-db" name="save_to_database" checked>
+                    <label for="save-db">Salvar no Banco de Dados</label>
+                </div>
+
+                <button type="submit" class="btn btn-success btn-large">🚀 Gerar Dados</button>
+            </form>
+            <div id="generate-status" class="result-message"></div>
+        </div>
+
+        <!-- Resultados -->
+        <div class="card" id="results-card" style="display: none;">
+            <h2>✅ Resultados da Geração</h2>
+            <div id="results-content"></div>
+        </div>
+
+        <!-- Otimização de Manutenção -->
+        <div class="card">
+            <h2>🎯 Otimização de Manutenção (Markov + NSGA-II)</h2>
+            <p class="subtitle">Execute os algoritmos de otimização para gerar o calendário de manutenção</p>
+
+            <form id="optimize-form">
+                <div class="form-group">
+                    <label for="equipment-select">📋 Selecionar Equipamento(s):</label>
+                    <select id="equipment-select" name="equipment_select" class="equipment-select">
+                        <option value="all">🔄 Todos os Equipamentos</option>
+                    </select>
+                    <button type="button" class="btn btn-secondary" onclick="loadEquipmentList()" style="margin-top: 10px;">🔄 Carregar Lista de Equipamentos</button>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="max-evaluations">Máximo de Avaliações:</label>
+                        <input type="number" id="max-evaluations" name="max_evaluations" value="4000" min="1000" max="10000" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="population-size">Tamanho da População:</label>
+                        <input type="number" id="population-size" name="population_size" value="200" min="50" max="500" required>
+                    </div>
+                </div>
+
+                <div class="form-group checkbox-group">
+                    <input type="checkbox" id="save-optimization" name="save_to_database" checked>
+                    <label for="save-optimization">Salvar Resultados no Banco</label>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-large">⚡ Executar Otimização</button>
+            </form>
+            <div id="optimize-status" class="result-message"></div>
+        </div>
+
+        <!-- Calendário de Manutenção -->
+        <div class="card" id="calendar-card">
+            <h2>📅 Calendário de Manutenção</h2>
+            <div class="form-row">
+                <button class="btn btn-success" onclick="loadMaintenanceCalendar()">🔄 Atualizar Calendário</button>
+            </div>
+            <div id="calendar-content">
+                <p class="info-text">Execute a otimização primeiro para gerar o calendário</p>
+            </div>
+        </div>
+
+        <!-- Visualização de Dados -->
+        <div class="card">
+            <h2>📈 Visualizar Dados</h2>
+            <div class="form-row">
+                <button class="btn btn-info" onclick="viewSensorData()">Ver Dados de Sensores</button>
+                <button class="btn btn-info" onclick="viewMaintenanceOrders()">Ver Ordens de Serviço</button>
+                <button class="btn btn-info" onclick="viewParetoFront()">Ver Fronteira de Pareto</button>
+            </div>
+            <div id="view-results" class="data-view"></div>
+        </div>
+    </div>
+
+    <footer>
+        <p>Sistema de Manutenção Preditiva v2.0 | © 2025</p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="/static/app.js?v=2.4"></script>
+</body>
+</html>

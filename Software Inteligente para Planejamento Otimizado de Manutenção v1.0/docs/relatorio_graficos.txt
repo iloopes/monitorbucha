@@ -1,0 +1,66 @@
+
+================================================================================
+RELATORIO DE GRAFICOS - TOP 5 EQUIPAMENTOS CRITICOS
+================================================================================
+
+TOP 5 EQUIPAMENTOS IDENTIFICADOS:
+--------------------------------------------------------------------------------
+
+1. SPGR.ATF1A
+   Estado: Degradado3
+   Corrente Atual: 149.32 mA
+   Corrente MÃ¡xima: 151.11 mA
+   Corrente MÃ©dia: 149.38 mA
+   Taxa DegradaÃ§Ã£o: 0.000141 mA/dia
+   TendÃªncia: ESTAVEL
+   Registros Processados: 44,609
+
+2. SPGR.ATF1B
+   Estado: Degradado3
+   Corrente Atual: 149.23 mA
+   Corrente MÃ¡xima: 151.03 mA
+   Corrente MÃ©dia: 149.30 mA
+   Taxa DegradaÃ§Ã£o: 0.000131 mA/dia
+   TendÃªncia: ESTAVEL
+   Registros Processados: 44,609
+
+3. SPGR.ATF1C
+   Estado: Degradado3
+   Corrente Atual: 148.95 mA
+   Corrente MÃ¡xima: 150.77 mA
+   Corrente MÃ©dia: 149.04 mA
+   Taxa DegradaÃ§Ã£o: 0.000133 mA/dia
+   TendÃªncia: ESTAVEL
+   Registros Processados: 44,609
+
+4. UHPF.TF1A
+   Estado: Degradado3
+   Corrente Atual: 148.60 mA
+   Corrente MÃ¡xima: 148.73 mA
+   Corrente MÃ©dia: 148.42 mA
+   Taxa DegradaÃ§Ã£o: 0.000059 mA/dia
+   TendÃªncia: ESTAVEL
+   Registros Processados: 44,495
+
+5. UHPF.TF1B
+   Estado: Degradado3
+   Corrente Atual: 147.12 mA
+   Corrente MÃ¡xima: 147.23 mA
+   Corrente MÃ©dia: 146.97 mA
+   Taxa DegradaÃ§Ã£o: 0.000045 mA/dia
+   TendÃªncia: ESTAVEL
+   Registros Processados: 44,495
+
+================================================================================
+ARQUIVOS GERADOS:
+--------------------------------------------------------------------------------
+  1. analise_top5_equipamentos.png
+     SÃ©ries temporais com tendÃªncias e limiares de saÃºde
+
+  2. comparacao_top5_equipamentos.png
+     ComparaÃ§Ã£o de corrente atual vs mÃ¡xima e taxas de degradaÃ§Ã£o
+
+  3. distribuicao_top5_equipamentos.png
+     DistribuiÃ§Ã£o estatÃ­stica e tabela resumida
+
+================================================================================
