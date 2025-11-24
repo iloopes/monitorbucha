@@ -1,0 +1,65 @@
+# Parâmetros do algoritmo NSGA-II (Non-dominated Sorting Genetic Algorithm II)
+
+algorithm:
+  name: "NSGA-II"
+
+  # Tamanho da população
+  population_size: 200
+
+  # Tamanho da população de filhos
+  offspring_population_size: 200
+
+  # Número máximo de avaliações da função objetivo
+  max_evaluations: 4000
+
+# Operadores genéticos
+operators:
+  # Crossover: SBX (Simulated Binary Crossover)
+  crossover:
+    type: "SBX"
+    probability: 1.0
+    distribution_index: 20
+
+  # Mutação: Polynomial Mutation
+  mutation:
+    type: "Polynomial"
+    # probability será calculada automaticamente como 1/n_variables
+    distribution_index: 20
+
+# Espaço de busca
+search_space:
+  # Variável: tempo até manutenção (em dias)
+  time_variable:
+    name: "t"
+    min_value: 1
+    max_value: 3650  # ~10 anos
+    description: "Dias até a manutenção programada"
+
+# Objetivos (a minimizar)
+objectives:
+  - name: "Custo"
+    description: "Custo total esperado incluindo manutenção"
+    weight: 1.0
+
+  - name: "Indisponibilidade"
+    description: "Indisponibilidade esperada do equipamento"
+    weight: 1.0
+
+# Configurações de convergência
+convergence:
+  # Se True, salva histórico de convergência
+  track_convergence: true
+
+  # Número de gerações para verificar estagnação
+  stagnation_generations: 50
+
+  # Tolerância para considerar estagnação
+  stagnation_tolerance: 1e-6
+
+# Configurações de saída
+output:
+  # Salvar todas as soluções ou apenas a fronteira de Pareto
+  save_all_solutions: false
+
+  # Formato de saída
+  format: "dataframe"  # opções: "dataframe", "json", "csv"
