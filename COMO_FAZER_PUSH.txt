@@ -1,0 +1,189 @@
+================================================================================
+  📤 COMO FAZER PUSH NO GITHUB
+================================================================================
+
+🔴 STATUS ATUAL:
+   ❌ Repositório https://github.com/iloopes/monitorbucha.git não existe
+   ✅ Repositório local está pronto (110 arquivos, 1 commit)
+
+================================================================================
+  PASSO 1: CRIAR REPOSITÓRIO NO GITHUB
+================================================================================
+
+1. Acesse: https://github.com/new
+
+2. Preencha os dados:
+   - Repository name: monitorbucha
+   - Description: Sistema Inteligente para Planejamento Otimizado de Manutenção
+   - Visibility: Public (ou Private, sua escolha)
+   - ❌ NÃO marque "Initialize this repository with"
+   - ❌ NÃO adicione README, .gitignore ou License
+
+3. Clique em "Create repository"
+
+================================================================================
+  PASSO 2: FAZER PUSH DO REPOSITÓRIO LOCAL
+================================================================================
+
+Execute os seguintes comandos:
+
+```bash
+cd "c:\Users\isl_7\OneDrive\Área de Trabalho\Trabalho\Genesis\Monitor de buchas\monitorbucha-main\monitorbucha-main\Software_Bucha"
+
+# Adicione o remote
+git remote add origin https://github.com/iloopes/monitorbucha.git
+
+# Renomeie a branch para 'main' (padrão do GitHub)
+git branch -M main
+
+# Faça o push (será pedida autenticação)
+git push -u origin main
+```
+
+================================================================================
+  PASSO 3: AUTENTICAÇÃO NO GITHUB
+================================================================================
+
+Quando solicitar autenticação, você tem 2 opções:
+
+OPÇÃO A: Via Token de Acesso Pessoal (Recomendado)
+─────────────────────────────────────────────────
+1. Vá para: https://github.com/settings/tokens
+2. Clique em "Generate new token" > "Generate new token (classic)"
+3. Configure:
+   - Token name: monitorbucha-push
+   - Expiration: 90 days
+   - Scopes: repo (selecione tudo)
+4. Copie o token gerado
+5. Na solicitação de senha do Git, cole o token
+6. Se quiser salvar: git config --global credential.helper store
+
+OPÇÃO B: Via SSH
+─────────────────
+1. Crie SSH key (se não tiver):
+   ssh-keygen -t ed25519 -C "seu@email.com"
+
+2. Adicione a chave pública no GitHub:
+   https://github.com/settings/ssh/new
+
+3. Configure o git para usar SSH:
+   git remote set-url origin git@github.com:iloopes/monitorbucha.git
+
+4. Faça push (sem pedir senha):
+   git push -u origin main
+
+================================================================================
+  PASSO 4: VERIFICAR SE DEU CERTO
+================================================================================
+
+Após fazer push, acesse:
+https://github.com/iloopes/monitorbucha
+
+Você deve ver:
+✅ 110 arquivos
+✅ Commit inicial com mensagem sobre shadcn/ui
+✅ Branches: main
+✅ Histórico com 1 commit
+
+================================================================================
+  COMANDOS COMPLETOS (Copie e Cole)
+================================================================================
+
+# Navegue até o diretório
+cd "c:\Users\isl_7\OneDrive\Área de Trabalho\Trabalho\Genesis\Monitor de buchas\monitorbucha-main\monitorbucha-main\Software_Bucha"
+
+# Configure o remote
+git remote add origin https://github.com/iloopes/monitorbucha.git
+
+# Renomeie para main
+git branch -M main
+
+# Faça push (pedirá autenticação)
+git push -u origin main
+
+================================================================================
+  TROUBLESHOOTING
+================================================================================
+
+❌ Erro: "fatal: repository not found"
+   → Certifique-se que criou o repositório no GitHub
+   → Verifique se o nome está correto
+
+❌ Erro: "Permission denied (publickey)"
+   → Use HTTPS em vez de SSH
+   → Ou configure corretamente suas SSH keys
+
+❌ Erro: "fatal: remote origin already exists"
+   → Execute: git remote remove origin
+   → Depois execute: git remote add origin ...
+
+❌ Erro: "fatal: refusing to merge unrelated histories"
+   → Isso não deve acontecer, mas se acontecer:
+   → git pull origin main --allow-unrelated-histories
+
+================================================================================
+  PRÓXIMAS ALTERAÇÕES
+================================================================================
+
+Depois que o primeiro push for bem-sucedido, para futuras alterações:
+
+# Fazer alterações nos arquivos
+
+# Adicionar ao git
+git add .
+
+# Fazer commit
+git commit -m "descrição das mudanças"
+
+# Fazer push
+git push origin main
+
+================================================================================
+  CHECKLIST
+================================================================================
+
+[ ] Repositório criado no GitHub
+[ ] URL: https://github.com/iloopes/monitorbucha.git
+[ ] Repositório está vazio (sem README, .gitignore, LICENSE)
+[ ] Autenticação GitHub configurada
+[ ] Commandos git executados
+[ ] Verificado em https://github.com/iloopes/monitorbucha
+[ ] Todos os 110 arquivos aparecem
+
+================================================================================
+  RESUMO DO QUE VAI SER FEITO PUSH
+================================================================================
+
+✅ 110 arquivos adicionados
+✅ 18,722 linhas de código
+✅ 1º commit: "✨ feat: Refactor frontend com shadcn/ui Design System"
+
+Incluso:
+├── frontend-shadcn/         - Novo frontend (Next.js + shadcn/ui)
+├── src/                     - Backend Python
+├── api/                     - API FastAPI
+├── config/                  - Configurações
+├── docs/                    - Documentação
+├── database/                - Scripts SQL
+├── scripts/                 - Scripts utilitários
+├── frontend/                - Frontend antigo
+└── Documentação (.md, .txt) - Guias e READMEs
+
+================================================================================
+  DÚVIDAS?
+================================================================================
+
+Se tiver problema, verifique:
+1. Está no diretório correto?
+2. Repositório foi criado no GitHub?
+3. Git está instalado e configurado?
+4. Tem acesso à internet?
+5. Credenciais do GitHub estão corretas?
+
+Consulte: GIT_PUSH_INSTRUCOES.md para mais detalhes
+
+================================================================================
+Versão: 2.0.0
+Data: 2025-11-24
+Status: Pronto para Push
+================================================================================
