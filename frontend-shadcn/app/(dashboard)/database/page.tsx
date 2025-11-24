@@ -217,7 +217,7 @@ export default function DatabasePage() {
             <strong>Autenticação SQL:</strong> Desabilite para usar usuário e senha do SQL Server.
           </p>
           <p>
-            <strong>Criar Tabelas:</strong> Clique em "Criar Tabelas" após a conexão ser estabelecida para inicializar o banco de dados.
+            <strong>Criar Tabelas:</strong> Clique em &quot;Criar Tabelas&quot; após a conexão ser estabelecida para inicializar o banco de dados.
           </p>
         </CardContent>
       </Card>
