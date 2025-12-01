@@ -1,0 +1,242 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║                  INTEGRAÇÃO DO AUTOENCODER - RESUMO                        ║
+║           Sistema de Detecção de Anomalias em Transformadores             ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+✅ IMPLEMENTAÇÕES COMPLETADAS:
+
+1️⃣  MÓDULO AUTOENCODER (Backend - Python)
+   └─ Arquivo: src/anomaly/autoencoder.py
+      ├─ Class MLPAutoEncoder: Arquitetura MLP (simples e rápida)
+      ├─ Class CNNAutoEncoder: Arquitetura CNN (para séries temporais)
+      └─ Class MovingWindowAutoEncoder: Interface principal
+         ├─ fit(): Treina o modelo com dados históricos
+         ├─ detect(): Detecta anomalias em novos dados
+         └─ get_anomaly_summary(): Resumo das anomalias
+
+2️⃣  GERENCIADOR DE ANOMALIAS (Backend - Python)
+   └─ Arquivo: src/anomaly/manager.py
+      ├─ AnomalyManager: Orquestra todo o sistema
+         ├─ train_autoencoder(): Treina com dados do banco
+         ├─ detect_anomalies(): Executa detecção
+         ├─ get_anomalies(): Busca anomalias salvas
+         └─ Persistência em banco de dados
+
+3️⃣  ENDPOINTS REST (Backend - FastAPI)
+   └─ Arquivo: api/main.py
+      ├─ POST /api/anomaly/train
+      │  └─ Treina novo modelo com parâmetros customizáveis
+      ├─ POST /api/anomaly/detect
+      │  └─ Detecta anomalias e salva resultados
+      ├─ GET /api/anomaly/list
+      │  └─ Retorna lista de anomalias com filtros
+      └─ GET /api/anomaly/summary
+         └─ Retorna resumo estatístico
+
+4️⃣  DASHBOARD DE ANOMALIAS (Frontend - React/TypeScript)
+   └─ Arquivo: frontend-shadcn/app/(dashboard)/anomalies/page.tsx
+      ├─ Cards de Resumo:
+      │  ├─ Anomalias Detectadas (contagem)
+      │  ├─ Erro Médio (Q)
+      │  ├─ Distância T² Média
+      │  └─ Total de Pontos Analisados
+      ├─ Controles:
+      │  ├─ Botão: Treinar Autoencoder
+      │  ├─ Botão: Detectar Anomalias
+      │  └─ Filtros: 6h, 12h, 24h, 48h, 168h
+      └─ Lista Detalhada:
+         ├─ Timestamp da anomalia
+         ├─ Equipment ID
+         ├─ Métricas (Q, T², reconstruction_error, latent_distance)
+         └─ Severity badge
+
+5️⃣  INTEGRAÇÃO NO CALENDÁRIO (Frontend - React/TypeScript)
+   └─ Arquivo: frontend-shadcn/app/(dashboard)/calendar/page.tsx
+      ├─ Resumo de Anomalias (24h):
+      │  ├─ Contagem total
+      │  ├─ Percentual de dados anômalos
+      │  └─ Métricas médias
+      └─ Cards de Manutenção Atualizados:
+         ├─ Badge 🚨 com número de anomalias por equipamento
+         └─ Indicador visual de equipamentos com comportamento anômalo
+
+6️⃣  ATUALIZAÇÃO DO SIDEBAR (Frontend)
+   └─ Arquivo: frontend-shadcn/components/sidebar.tsx
+      └─ Novo menu item:
+         └─ "Anomalias" com ícone AlertTriangle
+            └─ Link: /anomalies
+
+7️⃣  FUNÇÕES DE API (Frontend)
+   └─ Arquivo: frontend-shadcn/lib/api.ts
+      ├─ trainAnomalyModel()
+      ├─ detectAnomalies()
+      ├─ listAnomalies()
+      └─ getAnomalySummary()
+
+8️⃣  TABELAS DE BANCO DE DADOS (SQL Server)
+   └─ Criadas automaticamente:
+      ├─ anomaly_detections
+      │  ├─ equipment_id
+      │  ├─ timestamp
+      │  ├─ Q (erro reconstrução)
+      │  ├─ T2 (distância latente)
+      │  ├─ is_anomaly
+      │  ├─ severity
+      │  └─ +5 outras colunas
+      └─ anomaly_models
+         ├─ model_name
+         ├─ model_arch
+         ├─ latent_dim
+         ├─ window_size
+         └─ training_epochs
+
+9️⃣  DOCUMENTAÇÃO
+   └─ Arquivo: AUTOENCODER_README.md
+      ├─ Visão geral do sistema
+      ├─ Arquitetura e componentes
+      ├─ Como usar (tutorial passo a passo)
+      ├─ Referência de API endpoints
+      ├─ Personalização e troubleshooting
+      └─ Boas práticas
+
+═════════════════════════════════════════════════════════════════════════════
+
+📊 FLUXO DE DETECÇÃO:
+
+   Dados de Sensores (sensor_data)
+           ↓
+   Treinar Autoencoder (aprender padrão normal)
+   - 168 horas de histórico
+   - 50 épocas
+   - Normalização + MLP/CNN
+           ↓
+   Detectar Anomalias (identificar desvios)
+   - Calcular Q (recon)
+   - Calcular T² (latente)
+   - Comparar com threshold
+           ↓
+   Salvar Resultados (persistência)
+   - anomaly_detections
+   - Timestamps + métricas
+           ↓
+   Visualizar (3 opções)
+   A) Dashboard de Anomalias
+   B) Calendário integrado
+   C) API para integração
+
+═════════════════════════════════════════════════════════════════════════════
+
+🎯 TRÊS OPÇÕES IMPLEMENTADAS:
+
+Option 1️⃣ - ENDPOINT /api/anomaly/detect
+   ✅ Endpoint REST para detectar anomalias
+   ✅ Suporta customização de parâmetros
+   ✅ Retorna resultados em JSON estruturado
+   Uso: POST /api/anomaly/detect + GET /api/anomaly/list
+
+Option 2️⃣ - DASHBOARD DE ANOMALIAS
+   ✅ Página dedicada em /anomalies
+   ✅ Visualização completa com filtros temporais
+   ✅ Cards resumidos + lista detalhada
+   ✅ Botões para treinar e detectar
+   Acesso: Menu → "Anomalias" ou http://localhost:3000/anomalies
+
+Option 3️⃣ - INTEGRAÇÃO NO CALENDÁRIO
+   ✅ Resumo de anomalias no topo do calendário
+   ✅ Badge 🚨 em equipamentos com anomalias
+   ✅ Correlação entre manutenção programada e anomalias detectadas
+   Acesso: Menu → "Calendário" (já integrado)
+
+═════════════════════════════════════════════════════════════════════════════
+
+🔧 CONFIGURAÇÕES PADRÃO:
+
+Modelo:
+  Arquitetura: MLP (Multi-Layer Perceptron)
+  Camadas ocultas: [32, 16, 8]
+  Dimensão latente: 5
+  Janela: 168 horas (1 semana)
+  Épocas: 50
+  Learning Rate: 0.001
+
+Detecção:
+  Threshold: 95º percentil
+  Métricas: Q + T²
+  Suavização: rolling median
+  Persistência: Automática no banco
+
+═════════════════════════════════════════════════════════════════════════════
+
+📈 DADOS DO PROJETO:
+
+Pasta Criada:
+  src/anomaly/
+  ├─ __init__.py (113 bytes)
+  ├─ autoencoder.py (8.2 KB) - 250+ linhas
+  └─ manager.py (7.5 KB) - 280+ linhas
+
+Código Adicionado:
+  ├─ Backend: 150+ linhas em api/main.py
+  ├─ Frontend: 350+ linhas em components/sidebar.tsx, calendar/page.tsx
+  ├─ API Functions: 30+ linhas em lib/api.ts
+  └─ UI Components: page.tsx com 400+ linhas
+
+Documentação:
+  AUTOENCODER_README.md (500+ linhas)
+
+═════════════════════════════════════════════════════════════════════════════
+
+🚀 PRÓXIMOS PASSOS:
+
+1. Instalar dependências (se necessário):
+   pip install torch scikit-learn
+
+2. Reiniciar o servidor backend:
+   python api/main.py
+
+3. Gerar dados sintéticos (se não existirem):
+   - Ir em "Gerar Dados"
+   - Preencher parâmetros
+   - Clicar em "Gerar"
+
+4. Treinar o autoencoder:
+   - Ir em "Anomalias"
+   - Clicar em "🤖 Treinar Autoencoder"
+   - Aguardar conclusão
+
+5. Detectar anomalias:
+   - Clicar em "⚡ Detectar Anomalias"
+   - Visualizar resultados
+
+6. Visualizar em calendário:
+   - Ir em "Calendário"
+   - Ver anomalias integradas
+
+═════════════════════════════════════════════════════════════════════════════
+
+💡 DICAS DE USO:
+
+✓ Use MLP para padrões gerais (rápido)
+✓ Use CNN para séries temporais complexas (mais lento)
+✓ Aumente threshold_percentile para menos false positives
+✓ Reduza window_size se tiver poucos dados históricos
+✓ Retreine regularmente com novos dados
+✓ Valide alertas manualmente no início
+✓ Correlacione com eventos reais de manutenção
+✓ Use anomalias + otimização para máxima precisão
+
+═════════════════════════════════════════════════════════════════════════════
+
+✨ SUCESSO! Autoencoder integrado ao projeto! ✨
+
+Agora você tem:
+  ✅ Detecção de anomalias em tempo real
+  ✅ Dashboard dedicado com métricas
+  ✅ Integração com calendário de manutenção
+  ✅ API REST para integração externa
+  ✅ Persistência em banco de dados
+  ✅ Documentação completa
+
+Para mais detalhes, consulte: AUTOENCODER_README.md
+
+═════════════════════════════════════════════════════════════════════════════

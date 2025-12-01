@@ -7,10 +7,19 @@ import pandas as pd
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
+from enum import Enum
 
 from ..utils.logging_config import get_logger
 
 logger = get_logger(__name__)
+
+
+class AnomalyType(Enum):
+    """Tipos de anomalias que podem ser injetadas."""
+    SPIKE = "spike"  # Pico súbito
+    DRIFT = "drift"  # Desvio gradual
+    NOISE = "noise"  # Aumento de ruído
+    SHIFT = "shift"  # Mudança de nível
 
 
 @dataclass
@@ -44,6 +53,7 @@ class VirtualBushingGenerator:
 
     Simula o comportamento real de buchas ao longo do tempo,
     incluindo degradação progressiva e ruído aleatório.
+    Suporta injeção de anomalias para testes.
     """
 
     def __init__(self, seed: Optional[int] = None):
@@ -57,6 +67,7 @@ class VirtualBushingGenerator:
             np.random.seed(seed)
 
         self.configs: List[BushinConfig] = []
+        self.anomaly_indices: Dict[str, List[int]] = {}  # Track injected anomalies
         logger.info("Gerador de Buchas Virtuais inicializado")
 
     def add_bushing(self, config: BushinConfig) -> None:
@@ -233,6 +244,104 @@ class VirtualBushingGenerator:
 
         return data
 
+    def inject_anomalies(
+        self,
+        data: pd.DataFrame,
+        anomaly_rate: float = 5.0,
+        anomaly_type: str = "spike",
+        equipment_ids: Optional[List[str]] = None,
+    ) -> pd.DataFrame:
+        """
+        Injeta anomalias nos dados gerados para teste de detecção.
+
+        Args:
+            data: DataFrame com dados gerados.
+            anomaly_rate: Porcentagem de dados a injetar anomalias (0-100).
+            anomaly_type: Tipo de anomalia ("spike", "drift", "noise", "shift").
+            equipment_ids: Lista de equipamentos para injetar anomalias (None = todos).
+
+        Returns:
+            DataFrame com anomalias injetadas.
+        """
+        data = data.copy()
+
+        # Selecionar equipamentos alvo
+        if equipment_ids is None:
+            target_equipments = data['equipment_id'].unique().tolist()
+        else:
+            target_equipments = equipment_ids
+
+        logger.info(
+            f"Injetando anomalias: {anomaly_type} ({anomaly_rate}%) "
+            f"em {len(target_equipments)} equipamentos"
+        )
+
+        # Processar cada equipamento
+        for equipment_id in target_equipments:
+            equipment_data = data[data['equipment_id'] == equipment_id]
+
+            if len(equipment_data) == 0:
+                logger.warning(f"Equipamento {equipment_id} não encontrado")
+                continue
+
+            # Calcular número de anomalias a injetar
+            n_anomalies = max(1, int(len(equipment_data) * anomaly_rate / 100))
+
+            # Selecionar índices aleatórios para anomalias
+            anomaly_indices = np.random.choice(
+                len(equipment_data),
+                size=min(n_anomalies, len(equipment_data)),
+                replace=False
+            )
+
+            # Aplicar anomalia
+            equipment_indices = data[data['equipment_id'] == equipment_id].index
+
+            for idx in anomaly_indices:
+                actual_idx = equipment_indices[idx]
+
+                if anomaly_type == "spike":
+                    # Pico súbito (corrente se triplica)
+                    data.loc[actual_idx, 'corrente_fuga'] *= np.random.uniform(2.5, 3.5)
+                    data.loc[actual_idx, 'evento'] = "SPIKE_ANOMALICO"
+
+                elif anomaly_type == "drift":
+                    # Desvio gradual (aumento de 50-100%)
+                    data.loc[actual_idx, 'corrente_fuga'] *= np.random.uniform(1.5, 2.0)
+                    data.loc[actual_idx, 'tg_delta'] *= np.random.uniform(1.5, 2.0)
+                    data.loc[actual_idx, 'evento'] = "DRIFT_ANOMALICO"
+
+                elif anomaly_type == "noise":
+                    # Aumento de ruído (50% de variação extra)
+                    data.loc[actual_idx, 'corrente_fuga'] += np.random.normal(0, 0.2)
+                    data.loc[actual_idx, 'tg_delta'] += np.random.normal(0, 0.1)
+                    data.loc[actual_idx, 'evento'] = "NOISE_ANOMALICO"
+
+                elif anomaly_type == "shift":
+                    # Mudança de nível permanente (aumento constante)
+                    data.loc[actual_idx, 'corrente_fuga'] += np.random.uniform(0.5, 1.5)
+                    data.loc[actual_idx, 'evento'] = "SHIFT_ANOMALICO"
+
+            # Garantir valores não negativos
+            data.loc[equipment_indices, 'corrente_fuga'] = data.loc[equipment_indices, 'corrente_fuga'].apply(
+                lambda x: max(0.0, x)
+            )
+            data.loc[equipment_indices, 'tg_delta'] = data.loc[equipment_indices, 'tg_delta'].apply(
+                lambda x: max(0.0, x)
+            )
+
+            # Registrar anomalias injetadas
+            self.anomaly_indices[equipment_id] = [
+                equipment_indices[i] for i in anomaly_indices
+            ]
+
+            logger.info(
+                f"Equipamento {equipment_id}: {len(anomaly_indices)} anomalias "
+                f"injetadas ({anomaly_type})"
+            )
+
+        return data
+
     def _classify_health_state(self, corrente_fuga: float) -> int:
         """
         Classifica o estado de saúde baseado na corrente de fuga.
@@ -316,7 +425,10 @@ class VirtualBushingGenerator:
         scenario_name: str,
         n_bushings: int,
         days: int,
-        degradation_rate: str = "medium"
+        degradation_rate: str = "medium",
+        anomaly_rate: Optional[float] = None,
+        anomaly_type: str = "spike",
+        anomaly_equipments: Optional[List[str]] = None,
     ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """
         Gera um cenário completo de dados.
@@ -326,6 +438,9 @@ class VirtualBushingGenerator:
             n_bushings: Número de buchas.
             days: Número de dias de dados.
             degradation_rate: Taxa de degradação ("low", "medium", "high").
+            anomaly_rate: Porcentagem de dados para injetar anomalias (None = sem anomalias).
+            anomaly_type: Tipo de anomalia ("spike", "drift", "noise", "shift").
+            anomaly_equipments: Lista de IDs de equipamentos para injetar anomalias.
 
         Returns:
             Tupla (dados_sensores, ordens_servico).
@@ -334,6 +449,7 @@ class VirtualBushingGenerator:
 
         # Limpar configurações anteriores
         self.configs = []
+        self.anomaly_indices = {}
 
         # Definir taxas de degradação
         rates = {
@@ -364,6 +480,17 @@ class VirtualBushingGenerator:
         end_date = datetime.now()
 
         sensor_data = self.generate_data(start_date, end_date, frequency_hours=1)
+
+        # Injetar anomalias se solicitado
+        if anomaly_rate is not None and anomaly_rate > 0:
+            sensor_data = self.inject_anomalies(
+                sensor_data,
+                anomaly_rate=anomaly_rate,
+                anomaly_type=anomaly_type,
+                equipment_ids=anomaly_equipments
+            )
+            logger.info(f"Anomalias injetadas: {anomaly_type} ({anomaly_rate}%)")
+
         maintenance_orders = self.generate_maintenance_orders(sensor_data)
 
         logger.info(

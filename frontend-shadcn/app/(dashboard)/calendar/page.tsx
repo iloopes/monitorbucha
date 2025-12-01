@@ -4,12 +4,21 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader, AlertCircle } from 'lucide-react'
-import { loadMaintenanceCalendar } from '@/lib/api'
+import { Badge } from '@/components/ui/badge'
+import { Loader, AlertCircle, AlertTriangle, TrendingUp } from 'lucide-react'
+import { loadMaintenanceCalendar, listAnomalies, getAnomalySummary } from '@/lib/api'
+
+interface Anomaly {
+  equipment_id: string
+  timestamp: string
+  severity: string
+}
 
 export default function CalendarPage() {
   const [loading, setLoading] = useState(true)
   const [calendar, setCalendar] = useState<any[]>([])
+  const [anomalies, setAnomalies] = useState<Anomaly[]>([])
+  const [anomalySummary, setAnomalySummary] = useState<any>(null)
   const [message, setMessage] = useState<string | null>(null)
 
   useEffect(() => {
@@ -19,13 +28,21 @@ export default function CalendarPage() {
   const loadCalendar = async () => {
     setLoading(true)
     try {
-      const data = await loadMaintenanceCalendar()
-      setCalendar(data.calendar || [])
-      if (!data.calendar || data.calendar.length === 0) {
+      const [calendarData, anomaliesData, summaryData] = await Promise.all([
+        loadMaintenanceCalendar(),
+        listAnomalies(24, false),
+        getAnomalySummary(24)
+      ])
+
+      setCalendar(calendarData.calendar || [])
+      setAnomalies(anomaliesData.anomalies || [])
+      setAnomalySummary(summaryData.summary)
+
+      if (!calendarData.calendar || calendarData.calendar.length === 0) {
         setMessage('Nenhuma manutenção programada. Execute a otimização primeiro.')
       }
     } catch (error) {
-      setMessage(`Erro ao carregar calendário: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
+      setMessage(`Erro ao carregar dados: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
     } finally {
       setLoading(false)
     }
@@ -61,6 +78,10 @@ export default function CalendarPage() {
     }
   }
 
+  const getEquipmentAnomalies = (equipmentId: string) => {
+    return anomalies.filter(a => a.equipment_id === equipmentId)
+  }
+
   return (
     <div className="space-y-8">
       <div>
@@ -90,6 +111,44 @@ export default function CalendarPage() {
         </Alert>
       )}
 
+      {/* Resumo de Anomalias */}
+      {anomalySummary && anomalySummary.anomalies_detected > 0 && (
+        <Card className="border-l-4 border-l-orange-500 bg-orange-50">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-orange-600" />
+                <CardTitle>Anomalias Detectadas nas Últimas 24h</CardTitle>
+              </div>
+              <Badge variant="outline">{anomalySummary.anomalies_detected} anomalias</Badge>
+            </div>
+            <CardDescription>
+              {anomalySummary.anomaly_percentage.toFixed(1)}% dos dados apresentam comportamento anômalo
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4 text-sm">
+              <div>
+                <p className="text-muted-foreground font-medium">Erro Médio (Q)</p>
+                <p className="text-lg font-semibold">{(anomalySummary.mean_Q || 0).toFixed(4)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground font-medium">Distância T² Médio</p>
+                <p className="text-lg font-semibold">{(anomalySummary.mean_T2 || 0).toFixed(4)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground font-medium">Máximo Q</p>
+                <p className="text-lg font-semibold">{(anomalySummary.max_Q || 0).toFixed(4)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground font-medium">Máximo T²</p>
+                <p className="text-lg font-semibold">{(anomalySummary.max_T2 || 0).toFixed(4)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {calendar.length > 0 && (
         <div className="space-y-4">
           <Card>
@@ -115,7 +174,15 @@ export default function CalendarPage() {
                   <CardContent className="pt-6">
                     <div className="flex justify-between items-start mb-4">
                       <div>
-                        <h3 className="text-lg font-bold">{item.equipment_id}</h3>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-lg font-bold">{item.equipment_id}</h3>
+                          {getEquipmentAnomalies(item.equipment_id).length > 0 && (
+                            <Badge variant="destructive" className="flex items-center gap-1">
+                              <AlertTriangle className="h-3 w-3" />
+                              {getEquipmentAnomalies(item.equipment_id).length} anomalia(s)
+                            </Badge>
+                          )}
+                        </div>
                         <p className="text-sm text-muted-foreground">{item.localizacao}</p>
                       </div>
                       <span className={`px-3 py-1 rounded-full text-xs font-semibold uppercase ${getUrgencyBadgeColor(item.urgencia || 'programada')}`}>

@@ -10,6 +10,7 @@ import {
   Eye,
   Settings,
   Home,
+  AlertTriangle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -19,6 +20,7 @@ const menuItems = [
   { href: '/generate', label: 'Gerar Dados', icon: Zap },
   { href: '/optimize', label: 'Otimizar', icon: BarChart3 },
   { href: '/calendar', label: 'Calendário', icon: Calendar },
+  { href: '/anomalies', label: 'Anomalias', icon: AlertTriangle },
   { href: '/data', label: 'Visualizar Dados', icon: Eye },
   { href: '/settings', label: 'Configurações', icon: Settings },
 ]

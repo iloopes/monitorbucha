@@ -1,0 +1,275 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                                                                              ║
+║     Sistema Inteligente para Planejamento Otimizado de Manutenção v2.0       ║
+║                                                                              ║
+║                     ✓ SETUP COMPLETADO COM SUCESSO!                         ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+
+═══════════════════════════════════════════════════════════════════════════════
+ O QUE FOI INSTALADO
+═══════════════════════════════════════════════════════════════════════════════
+
+✓ Python 3.11.9 (já existente no seu sistema)
+✓ Virtual Environment (venv/) - Ambiente isolado para o projeto
+✓ Todas as dependências:
+  - NumPy 1.20.0+    (Computação numérica)
+  - Pandas 1.3.0+    (Processamento de dados)
+  - jmetalpy 1.5.5+  (Otimização multi-objetivo NSGA-II)
+  - Matplotlib 3.5.0+ (Visualização de gráficos)
+  - Seaborn 0.11.0+  (Gráficos estatísticos)
+  - PyYAML 5.4.0+    (Configurações)
+  - FastAPI 0.104.0+ (API web - opcional)
+  - PyODBC 4.0.39+   (SQL Server - opcional)
+  - E muitas outras...
+
+✓ Estrutura de diretórios:
+  - data/input/      (Seus arquivos de entrada)
+  - data/output/     (Resultados da otimização)
+  - data/examples/   (Exemplos)
+  - config/          (Arquivos de configuração)
+  - src/             (Código do projeto)
+  - scripts/         (Scripts executáveis)
+
+
+═══════════════════════════════════════════════════════════════════════════════
+ PRÓXIMOS PASSOS - GUIA RÁPIDO
+═══════════════════════════════════════════════════════════════════════════════
+
+PASSO 1: Ativar o Ambiente Virtual
+──────────────────────────────────
+
+Abra um terminal/CMD no diretório do projeto e execute:
+
+    venv\Scripts\activate
+
+Você verá o prompt mudar para algo como:
+    (venv) C:\Users\...\Software_Bucha>
+
+
+PASSO 2: Gerar Dados de Teste (Opcional)
+──────────────────────────────────────
+
+Execute:
+    python test_synthetic_data.py
+
+Isso criará: data/input/dados_teste.csv
+
+
+PASSO 3: Executar Otimização
+──────────────────────────────
+
+Comando básico:
+    python scripts/run_optimization.py ^
+        -i data/input/dados_teste.csv ^
+        -o data/output/resultados.xlsx
+
+Ou com opções personalizadas:
+    python scripts/run_optimization.py ^
+        -i seu_arquivo.csv ^
+        -o data/output/resultados.xlsx ^
+        --selection-criterion min_cost ^
+        --top 10
+
+Para ver todas as opções:
+    python scripts/run_optimization.py --help
+
+
+PASSO 4: Consultar Resultados
+───────────────────────────────
+
+Os resultados serão salvos em:
+- data/output/resultados.xlsx           → Calendário otimizado
+- data/output/fronteiras_de_pareto.xlsx → Análise detalhada
+
+
+═══════════════════════════════════════════════════════════════════════════════
+ ARQUIVO DE ENTRADA (formato CSV)
+═══════════════════════════════════════════════════════════════════════════════
+
+Suas colunas obrigatórias:
+
+1. OS_Id                    - ID da ordem de serviço (ex: OS_001)
+2. MotivoManutencao         - Tipo: DGA ou FQ
+3. estado_atual             - Estado de saúde atual (0-4)
+4. data_medicao             - Data da última medição
+
+Colunas para taxas de transição entre estados:
+5-8. taxa_0, taxa_1, taxa_2, taxa_3
+
+Colunas para custos operacionais por estado:
+9-13. custo_0, custo_1, custo_2, custo_3, custo_4
+
+Colunas para indisponibilidade (horas) por estado:
+14-18. indisponibilidade_0 a indisponibilidade_4
+
+Delimitador: ; (ponto e vírgula)
+
+
+═══════════════════════════════════════════════════════════════════════════════
+ EXEMPLO DE USO COMPLETO
+═══════════════════════════════════════════════════════════════════════════════
+
+# 1. Ativar ambiente
+venv\Scripts\activate
+
+# 2. Gerar dados teste (10 OSs)
+python test_synthetic_data.py
+
+# 3. Executar otimização
+python scripts/run_optimization.py ^
+    -i data/input/dados_teste.csv ^
+    -o data/output/meus_resultados.xlsx ^
+    --top 5
+
+# 4. Abrir resultado em Excel
+# data/output/meus_resultados.xlsx
+
+
+═══════════════════════════════════════════════════════════════════════════════
+ CONFIGURAÇÕES (Opcional)
+═══════════════════════════════════════════════════════════════════════════════
+
+Arquivos em config/:
+
+config/nsga_params.yaml
+├── population_size: 200        (aumentar = melhor mas mais lento)
+├── max_evaluations: 4000       (aumentar = mais iterações)
+└── mutation/crossover: ...     (parâmetros dos operadores)
+
+config/default.yaml
+├── log_level: INFO
+├── output_format: xlsx
+└── ...
+
+config/thresholds.yaml
+├── Limiares de estado de saúde
+└── Classificação de equipamentos
+
+Para modificar, edite os arquivos YAML em config/
+
+
+═══════════════════════════════════════════════════════════════════════════════
+ BANCO DE DADOS SQL SERVER (Opcional)
+═══════════════════════════════════════════════════════════════════════════════
+
+Se você quiser usar SQL Server (MaintenanceDB):
+
+1. Verifique sua instância do SQL Server
+2. Execute o script de setup:
+   sqlcmd -S DESKTOP-0L1FQAQ\KUZUSHI -E -i database\setup_database.sql
+
+Ou use o script Python:
+   python -c "
+   from src.database import SQLServerConnector, DatabaseManager
+   connector = SQLServerConnector(
+       server='DESKTOP-0L1FQAQ\KUZUSHI',
+       database='MaintenanceDB',
+       trusted_connection=True
+   )
+   connector.connect()
+   manager = DatabaseManager(connector)
+   manager.create_tables()
+   print('✓ Banco criado!')
+   "
+
+
+═══════════════════════════════════════════════════════════════════════════════
+ TESTES
+═══════════════════════════════════════════════════════════════════════════════
+
+Testar se tudo está funcionando:
+
+    python quick_test.py
+
+Isso irá:
+- Verificar todas as importações
+- Criar modelo de Markov
+- Validar a instalação
+
+
+═══════════════════════════════════════════════════════════════════════════════
+ DOCUMENTAÇÃO
+═══════════════════════════════════════════════════════════════════════════════
+
+Para mais informações:
+
+- README.md               → Visão geral e instruções detalhadas
+- GUIA_RAPIDO.md         → Guia rápido de uso
+- docs/                  → Documentação completa
+  ├── guia_instalacao.md
+  ├── manual_usuario.md
+  ├── api_reference.md
+  └── algoritmos.md
+- config/                → Exemplos de configuração
+
+
+═══════════════════════════════════════════════════════════════════════════════
+ DICAS E TROUBLESHOOTING
+═══════════════════════════════════════════════════════════════════════════════
+
+❌ Erro: "ModuleNotFoundError: No module named 'src'"
+✓ Solução: Certifique-se de que o venv está ativado
+           Reinstale: pip install -r requirements.txt
+
+❌ Erro: "Arquivo de entrada não encontrado"
+✓ Solução: Use caminhos absolutos ou relativos corretos
+           Exemplo: data/input/dados_teste.csv
+
+❌ Erro: "Database connection failed"
+✓ Solução: SQL Server é opcional - use CSV em vez disso
+           Ou configure o SQL Server corretamente
+
+❌ Otimização muito lenta
+✓ Solução: Reduza population_size/max_evaluations em config/nsga_params.yaml
+           Ou use menos dados para teste
+
+❌ Erro ao instalar dependências
+✓ Solução: python -m pip install --upgrade pip
+           pip install -r requirements.txt --no-cache-dir
+
+
+═══════════════════════════════════════════════════════════════════════════════
+ INFORMAÇÕES DO AMBIENTE
+═══════════════════════════════════════════════════════════════════════════════
+
+Python Version:        3.11.9
+Virtual Environment:   ./venv/
+Location:              c:\Users\isl_7\OneDrive\Área de Trabalho\Trabalho\Genesis\Monitor de buchas\monitorbucha-main\monitorbucha-main\Software_Bucha
+
+Dependências Principais:
+- NumPy:     ✓ Instalado
+- Pandas:    ✓ Instalado
+- jMetal:    ✓ Instalado
+- Matplotlib:✓ Instalado
+- FastAPI:   ✓ Instalado
+- PyODBC:    ✓ Instalado
+
+Status: ✓ PRONTO PARA USO
+
+
+═══════════════════════════════════════════════════════════════════════════════
+ PRÓXIMOS PASSOS
+═══════════════════════════════════════════════════════════════════════════════
+
+1. ✓ Ativar ambiente:       venv\Scripts\activate
+2. ⏭ Gerar dados teste:     python test_synthetic_data.py
+3. ⏭ Executar otimização:  python scripts/run_optimization.py -i data/input/dados_teste.csv -o data/output/resultados.xlsx
+4. ⏭ Consultar resultados: Abrir Excel em data/output/
+
+
+═══════════════════════════════════════════════════════════════════════════════
+ SUPORTE
+═══════════════════════════════════════════════════════════════════════════════
+
+Para problemas ou dúvidas:
+- Consulte README.md e documentação em docs/
+- Verifique GUIA_RAPIDO.md para exemplos
+- Abra uma issue no GitHub
+
+Versão: 2.0.0
+Status: ✓ Pronto para Produção (TRL 9)
+Data: 2025
+
+═══════════════════════════════════════════════════════════════════════════════

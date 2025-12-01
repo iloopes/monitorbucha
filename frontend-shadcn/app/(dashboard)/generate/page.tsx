@@ -28,6 +28,11 @@ export default function GeneratePage() {
     degradation_rate: 'medium',
     save_to_database: true,
     scenario_name: '',
+    enable_anomalies: false,
+    anomaly_rate: 5,
+    anomaly_type: 'spike',
+    randomize_anomaly_types: false,
+    anomaly_type_list: ['spike', 'drift', 'noise', 'shift'],
   })
 
   const handleInputChange = (field: string, value: string | number | boolean) => {
@@ -51,6 +56,11 @@ export default function GeneratePage() {
         degradation_rate: formData.degradation_rate,
         save_to_database: formData.save_to_database,
         scenario_name: formData.scenario_name || null,
+        anomaly_rate: formData.enable_anomalies ? formData.anomaly_rate : null,
+        anomaly_type: formData.anomaly_type,
+        anomaly_equipments: null, // Could be expanded for specific equipment selection
+        randomize_anomaly_types: formData.randomize_anomaly_types,
+        anomaly_type_list: formData.randomize_anomaly_types ? formData.anomaly_type_list : null,
       })
 
       setMessage({
@@ -172,6 +182,82 @@ export default function GeneratePage() {
               </Label>
             </div>
 
+            <div className="border-t pt-4 mt-4">
+              <div className="flex items-center space-x-2 mb-4">
+                <Checkbox
+                  id="enable-anomalies"
+                  checked={formData.enable_anomalies}
+                  onCheckedChange={(checked) =>
+                    handleInputChange('enable_anomalies', checked as boolean)
+                  }
+                  disabled={loading}
+                />
+                <Label htmlFor="enable-anomalies" className="cursor-pointer font-semibold">
+                  🚨 Injetar Anomalias (para testes)
+                </Label>
+              </div>
+
+              {formData.enable_anomalies && (
+                <div className="space-y-4 bg-orange-50 p-4 rounded-lg border border-orange-200">
+                  <div className="space-y-2">
+                    <Label htmlFor="anomaly-rate">Taxa de Anomalias (%)</Label>
+                    <div className="flex items-center space-x-2">
+                      <Input
+                        id="anomaly-rate"
+                        type="number"
+                        min="1"
+                        max="50"
+                        value={formData.anomaly_rate}
+                        onChange={(e) => handleInputChange('anomaly_rate', parseInt(e.target.value))}
+                        disabled={loading}
+                      />
+                      <span className="text-sm text-muted-foreground">{formData.anomaly_rate}% dos dados</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="randomize-types"
+                      checked={formData.randomize_anomaly_types}
+                      onCheckedChange={(checked) =>
+                        handleInputChange('randomize_anomaly_types', checked as boolean)
+                      }
+                      disabled={loading}
+                    />
+                    <Label htmlFor="randomize-types" className="cursor-pointer text-sm">
+                      Aleatorizar Tipos de Anomalias
+                    </Label>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="anomaly-type">
+                      {formData.randomize_anomaly_types ? 'Tipo de Anomalia (ignorado - tipos aleatorizados)' : 'Tipo de Anomalia'}
+                    </Label>
+                    <Select
+                      value={formData.anomaly_type}
+                      onValueChange={(value) => handleInputChange('anomaly_type', value)}
+                      disabled={loading || formData.randomize_anomaly_types}
+                    >
+                      <SelectTrigger id="anomaly-type">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="spike">Pico (Spike) - Aumento súbito de 2.5-3.5x</SelectItem>
+                        <SelectItem value="drift">Desvio (Drift) - Aumento gradual de 1.5-2.0x</SelectItem>
+                        <SelectItem value="noise">Ruído (Noise) - Aumento de variação</SelectItem>
+                        <SelectItem value="shift">Mudança (Shift) - Aumento permanente</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground italic">
+                    ℹ️ Anomalias injetadas serão marcadas com eventos "SPIKE_ANOMALICO", "DRIFT_ANOMALICO", etc.
+                    {formData.randomize_anomaly_types && ' Tipos aleatorizados entre: spike, drift, noise, shift'}
+                  </p>
+                </div>
+              )}
+            </div>
+
             <Button type="submit" disabled={loading} size="lg" className="w-full">
               {loading ? (
                 <>
@@ -253,6 +339,23 @@ export default function GeneratePage() {
                 <p>
                   <strong>Ordens Inseridas:</strong> {results.database?.orders_inserted}
                 </p>
+              </div>
+            )}
+
+            {results.anomalies && (
+              <div className="mt-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                <p className="text-sm font-semibold text-orange-900 mb-2">🚨 Anomalias Injetadas</p>
+                <div className="space-y-2 text-sm">
+                  <p>
+                    <strong>Tipo:</strong> {results.anomalies.type}
+                  </p>
+                  <p>
+                    <strong>Taxa Solicitada:</strong> {results.anomalies.rate_requested}%
+                  </p>
+                  <p>
+                    <strong>Anomalias Injetadas:</strong> {results.anomalies.count_actual} ({results.anomalies.percentage_actual}%)
+                  </p>
+                </div>
               </div>
             )}
           </CardContent>

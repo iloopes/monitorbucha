@@ -6,7 +6,10 @@
       "Bash(python -m venv:*)",
       "Bash(cmd /c \"venv\\Scripts\\python.exe test_setup.py\")",
       "Bash(cmd /c \"mkdir data\\input data\\output data\\examples 2>nul & echo ✓ Diretórios criados\")",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(python.exe:*)",
+      "Bash(tasklist:*)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": []

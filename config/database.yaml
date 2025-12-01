@@ -2,7 +2,7 @@
 
 sqlserver:
   # Servidor SQL Server (instância nomeada)
-  server: "DESKTOP-0L1FQAQ\\KUZUSHI"
+  server: "localhost"
 
   # Nome do banco de dados
   database: "MaintenanceDB"

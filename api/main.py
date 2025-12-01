@@ -22,9 +22,13 @@ from src.database import SQLServerConnector, DatabaseManager
 from src.utils import setup_logging
 from src.optimization import MaintenanceOptimizer
 from src.models import MarkovChainModel
+from src.anomaly import AnomalyManager
 
 # Configurar logging
 logger = setup_logging(log_level="INFO")
+
+# Pool global de modelos treinados (persiste entre requisições)
+trained_models = {}
 
 # Criar aplicação FastAPI
 app = FastAPI(
@@ -72,6 +76,13 @@ class GenerationRequest(BaseModel):
     degradation_rate: str = "medium"  # low, medium, high
     save_to_database: bool = True
     scenario_name: Optional[str] = None
+    # Anomaly injection parameters
+    anomaly_rate: Optional[float] = None  # Percentage (0-100), None = sem anomalias
+    anomaly_type: str = "spike"  # spike, drift, noise, shift
+    anomaly_equipments: Optional[List[str]] = None  # Equipment IDs to inject anomalies
+    # Randomized anomaly types
+    randomize_anomaly_types: bool = False  # Aleatorizar tipos de anomalias
+    anomaly_type_list: Optional[List[str]] = None  # Lista de tipos para aleatorizar
 
 
 class DatabaseConfig(BaseModel):
@@ -91,9 +102,56 @@ class OptimizationRequest(BaseModel):
     save_to_database: bool = True
 
 
+class AnomalyTrainingRequest(BaseModel):
+    """Modelo de requisição de treinamento do autoencoder."""
+    equipment_ids: Optional[List[str]] = None
+    model_name: str = "default_model"
+    model_arch: str = "mlp"  # "mlp" ou "cnn"
+    latent_dim: int = 5
+    window_size: int = 168  # 1 semana
+    num_epochs: int = 50
+    learning_rate: float = 1e-3
+
+
+class AnomalyDetectionRequest(BaseModel):
+    """Modelo de requisição de detecção de anomalias."""
+    model_name: Optional[str] = None
+    equipment_ids: Optional[List[str]] = None
+    threshold_percentile: float = 95.0
+    save_to_database: bool = True
+    randomize_anomalies: bool = False
+    anomaly_type: str = "auto"  # auto, temperature, humidity, vibration, pressure, mixed
+
+
 # Estado global do gerador
 generator = VirtualBushingGenerator(seed=42)
 db_connector: Optional[SQLServerConnector] = None
+
+
+@app.on_event("startup")
+async def startup_event():
+    """
+    Inicializa o banco de dados na inicialização da API.
+    """
+    global db_connector
+
+    try:
+        logger.info("Inicializando banco de dados na inicialização...")
+
+        # Criar conector carregando configurações do arquivo
+        db_connector = SQLServerConnector()
+        db_connector.connect()
+
+        # Criar tabelas se não existirem
+        manager = DatabaseManager(db_connector)
+        manager.create_tables()
+
+        logger.info("Banco de dados inicializado com sucesso na inicialização")
+
+    except Exception as e:
+        logger.warning(f"Aviso: Não foi possível inicializar banco de dados na inicialização: {e}")
+        logger.warning("O banco de dados será configurado manualmente ou será pulado se save_to_database = false")
+        db_connector = None
 
 
 @app.get("/")
@@ -208,20 +266,43 @@ async def add_bushing(config: BushingConfigModel):
 @app.post("/api/data/generate")
 async def generate_data(request: GenerationRequest):
     """
-    Gera dados sintéticos de buchas.
+    Gera dados sintéticos de buchas com opção de injeção de anomalias.
     """
     try:
         scenario_name = request.scenario_name or f"scenario_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
         logger.info(f"Gerando cenário: {scenario_name}")
 
+        # Determinar tipo de anomalia
+        anomaly_type = request.anomaly_type
+        if request.randomize_anomaly_types and request.anomaly_rate and request.anomaly_rate > 0:
+            import random
+            types_list = request.anomaly_type_list or ["spike", "drift", "noise", "shift"]
+            anomaly_type = random.choice(types_list)
+            logger.info(f"Tipo de anomalia aleatorizado: {anomaly_type}")
+
         # Gerar dados
         sensor_data, maintenance_orders = generator.generate_scenario(
             scenario_name=scenario_name,
             n_bushings=request.n_bushings,
             days=request.days,
-            degradation_rate=request.degradation_rate
+            degradation_rate=request.degradation_rate,
+            anomaly_rate=request.anomaly_rate,
+            anomaly_type=anomaly_type,
+            anomaly_equipments=request.anomaly_equipments
         )
+
+        # Calculate anomaly statistics if injected
+        anomaly_info = None
+        if request.anomaly_rate is not None and request.anomaly_rate > 0:
+            anomaly_count = len(sensor_data[sensor_data['evento'].str.contains('ANOMALICO', na=False)])
+            anomaly_info = {
+                "injected": True,
+                "type": request.anomaly_type,
+                "rate_requested": request.anomaly_rate,
+                "count_actual": anomaly_count,
+                "percentage_actual": round((anomaly_count / len(sensor_data) * 100), 2)
+            }
 
         result = {
             "status": "success",
@@ -237,6 +318,9 @@ async def generate_data(request: GenerationRequest):
                 }
             }
         }
+
+        if anomaly_info:
+            result["anomalies"] = anomaly_info
 
         # Salvar no banco se solicitado
         if request.save_to_database:
@@ -521,7 +605,7 @@ async def run_optimization(request: OptimizationRequest):
                     "t_days": best_solution['t_days'],
                     "custo": best_solution['cost'],
                     "indisponibilidade": best_solution['unavailability'],
-                    "data_otima": data_manutencao_otima.isoformat(),
+                    "data_otima": data_manutencao_otima,  # Manter como objeto date, não converter para string
                     "prioridade": 5 - row['mf_dga'],  # Maior prioridade para estados mais degradados
                     "pareto_size": len(pareto_front)
                 }
@@ -545,57 +629,107 @@ async def run_optimization(request: OptimizationRequest):
         if request.save_to_database and results:
             results_df = pd.DataFrame(results)
 
-            # Inserir resultados de otimização
-            insert_query = """
-            INSERT INTO optimization_results (
-                os_id, t_days, custo, indisponibilidade, data_otima,
-                prioridade, criterio_selecao
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            """
+            # Obter resultados existentes para verificar duplicatas
+            try:
+                existing_query = """
+                SELECT DISTINCT os_id, t_days FROM optimization_results
+                WHERE os_id IN ({})
+                """.format(",".join(["?" for _ in results_df['os_id'].unique()]))
+                existing_df = db_connector.fetch_data(
+                    existing_query,
+                    tuple(results_df['os_id'].unique())
+                )
+                existing_keys = set(zip(existing_df['os_id'], existing_df['t_days'])) if not existing_df.empty else set()
+            except Exception as e:
+                logger.warning(f"Erro ao verificar resultados existentes: {e}")
+                existing_keys = set()
 
-            cursor = db_connector.connection.cursor()
-            inserted = 0
-
+            # Filtrar apenas novos resultados
+            new_results = []
             for _, result in results_df.iterrows():
-                try:
-                    cursor.execute(insert_query, (
-                        result['os_id'],
-                        result['t_days'],
-                        result['custo'],
-                        result['indisponibilidade'],
-                        result['data_otima'],
-                        result['prioridade'],
-                        'min_cost'
-                    ))
-                    inserted += 1
-                except Exception as e:
-                    logger.warning(f"Erro ao inserir resultado: {e}")
-                    continue
+                if (result['os_id'], result['t_days']) not in existing_keys:
+                    new_results.append(result)
 
-            db_connector.connection.commit()
-            logger.info(f"{inserted} resultados de otimização salvos no banco")
+            if not new_results:
+                logger.info("Todos os resultados de otimização já existem no banco (0 novas inseridas)")
+            else:
+                duplicates_count = len(results_df) - len(new_results)
+                if duplicates_count > 0:
+                    logger.info(f"Inserindo {len(new_results)} novos resultados (ignoradas {duplicates_count} duplicatas)")
+
+                # Inserir resultados de otimização
+                insert_query = """
+                INSERT INTO optimization_results (
+                    os_id, t_days, custo, indisponibilidade, data_otima,
+                    prioridade, criterio_selecao
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """
+
+                cursor = db_connector.connection.cursor()
+                inserted = 0
+
+                for result in new_results:
+                    try:
+                        cursor.execute(insert_query, (
+                            result['os_id'],
+                            result['t_days'],
+                            result['custo'],
+                            result['indisponibilidade'],
+                            result['data_otima'],
+                            result['prioridade'],
+                            'min_cost'
+                        ))
+                        inserted += 1
+                    except Exception as e:
+                        logger.warning(f"Erro ao inserir resultado: {e}")
+                        continue
+
+                db_connector.connection.commit()
+                logger.info(f"{inserted} resultados de otimização salvos no banco")
 
             # Salvar pontos do Pareto
             if pareto_data:
                 pareto_df = pd.DataFrame(pareto_data)
+
+                # Obter pontos Pareto existentes
+                try:
+                    pareto_existing_query = """
+                    SELECT DISTINCT os_id, t_days FROM pareto_frontier
+                    WHERE os_id IN ({})
+                    """.format(",".join(["?" for _ in pareto_df['os_id'].unique()]))
+                    pareto_existing_df = db_connector.fetch_data(
+                        pareto_existing_query,
+                        tuple(pareto_df['os_id'].unique())
+                    )
+                    pareto_existing_keys = set(zip(pareto_existing_df['os_id'], pareto_existing_df['t_days'])) if not pareto_existing_df.empty else set()
+                except Exception as e:
+                    logger.warning(f"Erro ao verificar pontos Pareto existentes: {e}")
+                    pareto_existing_keys = set()
+
                 pareto_insert_query = """
                 INSERT INTO pareto_frontier (
                     os_id, t_days, custo, indisponibilidade
                 ) VALUES (?, ?, ?, ?)
                 """
 
+                pareto_inserted = 0
                 for _, point in pareto_df.iterrows():
-                    try:
-                        cursor.execute(pareto_insert_query, (
-                            point['os_id'],
-                            point['t_days'],
-                            point['custo'],
-                            point['indisponibilidade']
-                        ))
-                    except:
-                        pass
+                    if (point['os_id'], point['t_days']) not in pareto_existing_keys:
+                        try:
+                            cursor.execute(pareto_insert_query, (
+                                point['os_id'],
+                                point['t_days'],
+                                point['custo'],
+                                point['indisponibilidade']
+                            ))
+                            pareto_inserted += 1
+                        except Exception as e:
+                            logger.warning(f"Erro ao inserir ponto Pareto: {e}")
+                            pass
 
                 db_connector.connection.commit()
+                if pareto_inserted > 0:
+                    logger.info(f"{pareto_inserted} pontos Pareto salvos no banco")
 
         # Ordenar por prioridade
         results.sort(key=lambda x: x['prioridade'], reverse=True)
@@ -629,26 +763,55 @@ async def get_maintenance_calendar():
         )
 
     try:
-        # Buscar do banco usando a view criada no schema.sql
-        query = """
-        SELECT
-            mo.os_id,
-            mo.equipment_id,
-            mo.localizacao,
-            mo.mf_dga as estado_atual,
-            opt.data_otima,
-            opt.t_days,
-            opt.custo,
-            opt.indisponibilidade,
-            opt.prioridade,
-            DATEDIFF(day, GETDATE(), opt.data_otima) as dias_ate_manutencao
-        FROM maintenance_orders mo
-        INNER JOIN optimization_results opt ON mo.os_id = opt.os_id
-        WHERE opt.data_otima >= GETDATE()
-        ORDER BY opt.prioridade DESC, opt.data_otima ASC
-        """
-
         manager = DatabaseManager(db_connector)
+
+        # Verificar se tabelas existem e têm dados
+        mo_count = manager.connector.fetch_data("SELECT COUNT(*) as cnt FROM maintenance_orders")
+        opt_count = manager.connector.fetch_data("SELECT COUNT(*) as cnt FROM optimization_results")
+
+        if mo_count.empty or mo_count.iloc[0]['cnt'] == 0:
+            return {
+                "status": "success",
+                "message": "Nenhuma ordem de manutenção encontrada no banco",
+                "calendar": []
+            }
+
+        if opt_count.empty or opt_count.iloc[0]['cnt'] == 0:
+            # Se não há resultados de otimização, retornar ordens sem otimização
+            query = """
+            SELECT
+                mo.os_id,
+                mo.equipment_id,
+                mo.localizacao,
+                mo.mf_dga as estado_atual,
+                CAST(GETDATE() AS DATE) as data_otima,
+                NULL as t_days,
+                NULL as custo,
+                NULL as indisponibilidade,
+                1 as prioridade,
+                0 as dias_ate_manutencao
+            FROM maintenance_orders mo
+            ORDER BY mo.os_id ASC
+            """
+        else:
+            # Query com LEFT JOIN para incluir ordens sem otimização
+            query = """
+            SELECT
+                mo.os_id,
+                mo.equipment_id,
+                mo.localizacao,
+                mo.mf_dga as estado_atual,
+                COALESCE(opt.data_otima, CAST(GETDATE() AS DATE)) as data_otima,
+                opt.t_days,
+                opt.custo,
+                opt.indisponibilidade,
+                COALESCE(opt.prioridade, 1) as prioridade,
+                DATEDIFF(day, GETDATE(), COALESCE(opt.data_otima, CAST(GETDATE() AS DATE))) as dias_ate_manutencao
+            FROM maintenance_orders mo
+            LEFT JOIN optimization_results opt ON mo.os_id = opt.os_id
+            ORDER BY COALESCE(opt.prioridade, 1) DESC, COALESCE(opt.data_otima, CAST(GETDATE() AS DATE)) ASC
+            """
+
         calendar_df = manager.connector.fetch_data(query)
 
         if calendar_df.empty:
@@ -663,7 +826,9 @@ async def get_maintenance_calendar():
 
         # Adicionar categorias de urgência
         for item in calendar:
-            dias = item['dias_ate_manutencao']
+            dias = item.get('dias_ate_manutencao', 0)
+            if dias is None:
+                dias = 0
             if dias < 0:
                 item['urgencia'] = 'atrasado'
             elif dias <= 7:
@@ -739,6 +904,260 @@ async def get_pareto_front(equipment_id: str):
 
     except Exception as e:
         logger.error(f"Erro ao buscar Pareto: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# ENDPOINTS DE DETECÇÃO DE ANOMALIAS
+# ============================================================================
+
+
+@app.post("/api/anomaly/train")
+async def train_anomaly_model(request: AnomalyTrainingRequest):
+    """
+    Treina um novo modelo de autoencoder para detecção de anomalias.
+    """
+    if not db_connector:
+        raise HTTPException(
+            status_code=400,
+            detail="Banco de dados não configurado"
+        )
+
+    try:
+        logger.info(f"Iniciando treinamento: {request.model_arch}, {request.num_epochs} épocas, {request.window_size}h janela")
+
+        manager = AnomalyManager(db_connector)
+
+        result = manager.train_autoencoder(
+            equipment_ids=request.equipment_ids,
+            model_name=request.model_name,
+            model_arch=request.model_arch,
+            latent_dim=request.latent_dim,
+            window_size=request.window_size,
+            num_epochs=request.num_epochs,
+            learning_rate=request.learning_rate
+        )
+
+        # Guardar modelo no pool global para uso posterior
+        if result['status'] == 'success' and manager.autoencoder is not None:
+            trained_models[request.model_name] = {
+                'manager': manager,
+                'autoencoder': manager.autoencoder,
+                'trained_at': datetime.now(),
+                'config': {
+                    'model_arch': request.model_arch,
+                    'latent_dim': request.latent_dim,
+                    'window_size': request.window_size
+                }
+            }
+            logger.info(f"Modelo '{request.model_name}' armazenado no pool global")
+
+        logger.info(f"Treinamento concluído: {result['status']}")
+        return result
+
+    except Exception as e:
+        logger.error(f"Erro ao treinar modelo: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/anomaly/training-status")
+async def get_training_status():
+    """
+    Retorna o status atual do treinamento para polling no frontend.
+    """
+    try:
+        # Simples polling - pode ser melhorado com WebSocket
+        import subprocess
+        import os
+
+        log_file = Path(__file__).parent.parent / "logs" / "maintenance_system.log"
+
+        status = {
+            "status": "idle",
+            "message": "Nenhum treinamento em andamento",
+            "latest_logs": []
+        }
+
+        # Se arquivo de log existe, ler últimas linhas
+        if log_file.exists():
+            try:
+                with open(log_file, 'r', encoding='utf-8', errors='ignore') as f:
+                    lines = f.readlines()
+                    # Pegar últimas 20 linhas
+                    recent_lines = lines[-20:] if len(lines) > 20 else lines
+
+                    # Filtrar logs relevantes de treinamento
+                    training_logs = [l.strip() for l in recent_lines if 'Época' in l or 'Treinamento' in l or 'autoencoder' in l.lower()]
+                    status["latest_logs"] = training_logs[-5:]  # Últimos 5 logs
+
+                    # Detectar status baseado em logs recentes
+                    recent_text = ''.join(recent_lines[-10:])
+                    if 'Época' in recent_text and 'Treinamento concluído' not in recent_text:
+                        status["status"] = "training"
+                        status["message"] = "Modelo em treinamento..."
+                    elif 'Treinamento concluído' in recent_text:
+                        status["status"] = "completed"
+                        status["message"] = "Treinamento concluído com sucesso!"
+                    elif 'Erro' in recent_text:
+                        status["status"] = "error"
+                        status["message"] = "Erro durante o treinamento"
+
+            except Exception as e:
+                logger.warning(f"Erro ao ler logs: {e}")
+
+        return status
+
+    except Exception as e:
+        logger.error(f"Erro ao obter status: {e}")
+        return {
+            "status": "unknown",
+            "message": "Erro ao obter status",
+            "latest_logs": []
+        }
+
+
+@app.post("/api/anomaly/detect")
+async def detect_anomalies(request: AnomalyDetectionRequest):
+    """
+    Detecta anomalias nos dados usando o modelo treinado.
+    """
+    if not db_connector:
+        raise HTTPException(
+            status_code=400,
+            detail="Banco de dados não configurado"
+        )
+
+    try:
+        # Buscar modelo no pool global
+        model_name = request.model_name or 'autoencoder_model'
+
+        if model_name not in trained_models:
+            return {
+                "status": "error",
+                "message": f"Modelo '{model_name}' não foi treinado. Treine o modelo primeiro."
+            }
+
+        # Recuperar manager com autoencoder já treinado
+        model_info = trained_models[model_name]
+        manager = model_info['manager']
+
+        logger.info(f"Usando modelo '{model_name}' treinado em {model_info['trained_at']}")
+
+        # Log dos parâmetros de aleatorização
+        if request.randomize_anomalies:
+            logger.info(f"Detecção com tipos de anomalias aleatorizados - Tipo: {request.anomaly_type}")
+
+        result = manager.detect_anomalies(
+            equipment_ids=request.equipment_ids,
+            threshold_percentile=request.threshold_percentile,
+            save_to_database=request.save_to_database,
+            randomize_anomalies=request.randomize_anomalies,
+            anomaly_type=request.anomaly_type
+        )
+
+        return result
+
+    except Exception as e:
+        logger.error(f"Erro na detecção: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/anomaly/list")
+async def list_anomalies(
+    equipment_id: Optional[str] = Query(None),
+    hours: int = Query(24, ge=1, le=8760),
+    only_anomalies: bool = Query(True)
+):
+    """
+    Lista anomalias detectadas.
+
+    Args:
+        equipment_id: Filtrar por equipamento
+        hours: Quantas horas retroceder
+        only_anomalies: Mostrar apenas anomalias (True) ou todos os pontos
+    """
+    if not db_connector:
+        raise HTTPException(
+            status_code=400,
+            detail="Banco de dados não configurado"
+        )
+
+    try:
+        manager = AnomalyManager(db_connector)
+        anomalies = manager.get_anomalies(
+            equipment_id=equipment_id,
+            hours=hours,
+            only_anomalies=only_anomalies
+        )
+
+        if anomalies.empty:
+            return {
+                "status": "success",
+                "message": "Nenhuma anomalia encontrada",
+                "anomalies": [],
+                "total": 0
+            }
+
+        return {
+            "status": "success",
+            "total": len(anomalies),
+            "anomalies": anomalies.to_dict(orient='records')
+        }
+
+    except Exception as e:
+        logger.error(f"Erro ao listar anomalias: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/anomaly/summary")
+async def anomaly_summary(
+    equipment_id: Optional[str] = Query(None),
+    hours: int = Query(24, ge=1, le=8760)
+):
+    """
+    Retorna resumo de anomalias detectadas.
+    """
+    if not db_connector:
+        raise HTTPException(
+            status_code=400,
+            detail="Banco de dados não configurado"
+        )
+
+    try:
+        manager = AnomalyManager(db_connector)
+        anomalies = manager.get_anomalies(
+            equipment_id=equipment_id,
+            hours=hours,
+            only_anomalies=True
+        )
+
+        total_points = len(anomalies)
+        n_anomalies = total_points
+
+        summary = {
+            "equipment_id": equipment_id or "todos",
+            "hours": hours,
+            "total_points": total_points,
+            "anomalies_detected": n_anomalies,
+            "anomaly_percentage": (n_anomalies / total_points * 100) if total_points > 0 else 0
+        }
+
+        if not anomalies.empty:
+            summary.update({
+                "mean_Q": float(anomalies['Q'].mean()),
+                "mean_T2": float(anomalies['T2'].mean()),
+                "max_Q": float(anomalies['Q'].max()),
+                "max_T2": float(anomalies['T2'].max()),
+                "severity_counts": anomalies['severity'].value_counts().to_dict()
+            })
+
+        return {
+            "status": "success",
+            "summary": summary
+        }
+
+    except Exception as e:
+        logger.error(f"Erro ao gerar resumo: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

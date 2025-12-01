@@ -287,7 +287,7 @@ class DatabaseManager:
 
     def insert_sensor_data(self, data: pd.DataFrame) -> int:
         """
-        Insere dados de sensores no banco.
+        Insere dados de sensores no banco com verificação de duplicatas.
 
         Args:
             data: DataFrame com dados de sensores.
@@ -295,7 +295,17 @@ class DatabaseManager:
         Returns:
             Número de registros inseridos.
         """
-        logger.info(f"Inserindo {len(data)} registros de sensores...")
+        logger.info(f"Verificando e inserindo {len(data)} registros de sensores...")
+
+        # Verificar registros duplicados no banco antes de inserir
+        existing_records = self._get_existing_sensor_records(data)
+
+        # Filtrar apenas registros novos (não duplicados)
+        new_data = data[~data.apply(lambda row: self._is_duplicate_sensor_record(row, existing_records), axis=1)]
+
+        if len(new_data) == 0:
+            logger.info("Todos os registros já existem no banco. Nenhum insert realizado.")
+            return 0
 
         insert_query = """
         INSERT INTO sensor_data (
@@ -308,7 +318,7 @@ class DatabaseManager:
         cursor = self.connector.connection.cursor()
         inserted = 0
 
-        for _, row in data.iterrows():
+        for _, row in new_data.iterrows():
             try:
                 cursor.execute(insert_query, (
                     row['timestamp'],
@@ -327,17 +337,74 @@ class DatabaseManager:
                 inserted += 1
 
             except Exception as e:
-                logger.warning(f"Erro ao inserir registro: {e}")
+                logger.warning(f"Erro ao inserir registro (equipment={row['equipment_id']}, timestamp={row['timestamp']}): {e}")
                 continue
 
         self.connector.connection.commit()
-        logger.info(f"{inserted} registros de sensores inseridos")
+        logger.info(f"{inserted} registros de sensores inseridos (filtrados de {len(data)}, {len(data) - inserted} duplicatas ignoradas)")
 
         return inserted
 
+    def _get_existing_sensor_records(self, data: pd.DataFrame) -> pd.DataFrame:
+        """
+        Busca registros existentes no banco para comparação.
+
+        Args:
+            data: DataFrame com dados para filtrar.
+
+        Returns:
+            DataFrame com registros existentes.
+        """
+        try:
+            # Pegar equipamentos e datas únicas
+            equipment_ids = data['equipment_id'].unique().tolist()
+            min_timestamp = data['timestamp'].min()
+            max_timestamp = data['timestamp'].max()
+
+            if not equipment_ids:
+                return pd.DataFrame()
+
+            # Buscar registros existentes nesse range
+            equipments_str = "', '".join(equipment_ids)
+            query = f"""
+            SELECT timestamp, equipment_id, corrente_fuga, tg_delta, capacitancia
+            FROM sensor_data
+            WHERE equipment_id IN ('{equipments_str}')
+            AND timestamp BETWEEN ? AND ?
+            """
+
+            existing = self.connector.fetch_data(query, (min_timestamp, max_timestamp))
+            return existing if existing is not None else pd.DataFrame()
+
+        except Exception as e:
+            logger.warning(f"Erro ao buscar registros existentes: {e}")
+            return pd.DataFrame()
+
+    def _is_duplicate_sensor_record(self, row, existing_records: pd.DataFrame) -> bool:
+        """
+        Verifica se um registro é duplicado comparando timestamp, equipment_id e valores.
+
+        Args:
+            row: Linha do DataFrame.
+            existing_records: DataFrame com registros existentes.
+
+        Returns:
+            True se for duplicado, False caso contrário.
+        """
+        if existing_records.empty:
+            return False
+
+        # Buscar registros do mesmo equipamento e timestamp
+        matches = existing_records[
+            (existing_records['equipment_id'] == row['equipment_id']) &
+            (existing_records['timestamp'] == row['timestamp'])
+        ]
+
+        return len(matches) > 0
+
     def insert_maintenance_orders(self, orders: pd.DataFrame) -> int:
         """
-        Insere ordens de serviço no banco.
+        Insere ordens de serviço no banco com verificação de duplicatas.
 
         Args:
             orders: DataFrame com ordens de serviço.
@@ -345,7 +412,17 @@ class DatabaseManager:
         Returns:
             Número de registros inseridos.
         """
-        logger.info(f"Inserindo {len(orders)} ordens de serviço...")
+        logger.info(f"Verificando e inserindo {len(orders)} ordens de serviço...")
+
+        # Verificar IDs de OS que já existem
+        existing_os_ids = self._get_existing_os_ids(orders)
+
+        # Filtrar apenas OS novas (não duplicadas)
+        new_orders = orders[~orders['OS_Id'].isin(existing_os_ids)]
+
+        if len(new_orders) == 0:
+            logger.info("Todas as ordens de serviço já existem no banco. Nenhum insert realizado.")
+            return 0
 
         insert_query = """
         INSERT INTO maintenance_orders (
@@ -361,7 +438,7 @@ class DatabaseManager:
         cursor = self.connector.connection.cursor()
         inserted = 0
 
-        for _, row in orders.iterrows():
+        for _, row in new_orders.iterrows():
             try:
                 cursor.execute(insert_query, (
                     row['OS_Id'],
@@ -392,9 +469,45 @@ class DatabaseManager:
                 continue
 
         self.connector.connection.commit()
-        logger.info(f"{inserted} ordens de serviço inseridas")
+        logger.info(f"{inserted} ordens de serviço inseridas (filtradas de {len(orders)}, {len(orders) - inserted} duplicatas ignoradas)")
 
         return inserted
+
+    def _get_existing_os_ids(self, orders: pd.DataFrame) -> List[str]:
+        """
+        Busca IDs de OS que já existem no banco.
+
+        Args:
+            orders: DataFrame com as OS a inserir.
+
+        Returns:
+            Lista com IDs de OS existentes.
+        """
+        try:
+            # Pegar IDs únicos de OS
+            os_ids = orders['OS_Id'].unique().tolist()
+
+            if not os_ids:
+                return []
+
+            # Buscar OS existentes
+            os_ids_str = "', '".join(os_ids)
+            query = f"""
+            SELECT os_id
+            FROM maintenance_orders
+            WHERE os_id IN ('{os_ids_str}')
+            """
+
+            result = self.connector.fetch_data(query)
+
+            if result is not None and not result.empty:
+                return result['os_id'].tolist()
+
+            return []
+
+        except Exception as e:
+            logger.warning(f"Erro ao buscar IDs de OS existentes: {e}")
+            return []
 
     def get_sensor_data(
         self,
