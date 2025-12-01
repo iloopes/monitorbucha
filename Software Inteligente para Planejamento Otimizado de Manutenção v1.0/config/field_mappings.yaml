@@ -1,0 +1,50 @@
+# Mapeamento de campos para análise DGA (Dissolved Gas Analysis)
+dga_mapping:
+  estado_atual: "MF_DGA"
+  data_medicao: "MF_DGA_DATA"
+  taxas:
+    normal: "DGA_TAXA_N"
+    degradado1: "DGA_TAXA_D1"
+    degradado2: "DGA_TAXA_D2"
+    degradado3: "DGA_TAXA_D3"
+  custos:
+    normal: "DGA_CUSTO_N"
+    degradado1: "DGA_CUSTO_D1"
+    degradado2: "DGA_CUSTO_D2"
+    degradado3: "DGA_CUSTO_D3"
+    falha: "DGA_CUSTO_FALHA"
+  indisponibilidade:
+    normal: "DGA_INDISPONIBILIDADE_N"
+    degradado1: "DGA_INDISPONIBILIDADE_D1"
+    degradado2: "DGA_INDISPONIBILIDADE_D2"
+    degradado3: "DGA_INDISPONIBILIDADE_D3"
+    falha: "DGA_INDISPONIBILIDADE_FALHA"
+
+# Mapeamento de campos para análise FQ (Físico-Química)
+fq_mapping:
+  estado_atual: "MF_FQ"
+  data_medicao: "MF_FQ_DATA"
+  taxas:
+    normal: "FQ_TAXA_N"
+    degradado1: "FQ_TAXA_D1"
+    degradado2: "FQ_TAXA_D2"
+    degradado3: "FQ_TAXA_D3"
+  custos:
+    normal: "FQ_CUSTO_N"
+    degradado1: "FQ_CUSTO_D1"
+    degradado2: "FQ_CUSTO_D2"
+    degradado3: "FQ_CUSTO_D3"
+    falha: "FQ_CUSTO_FALHA"
+  indisponibilidade:
+    normal: "FQ_INDISPONIBILIDADE_N"
+    degradado1: "FQ_INDISPONIBILIDADE_D1"
+    degradado2: "FQ_INDISPONIBILIDADE_D2"
+    degradado3: "FQ_INDISPONIBILIDADE_D3"
+    falha: "FQ_INDISPONIBILIDADE_FALHA"
+
+# Campos comuns
+common_fields:
+  os_id: "OS_Id"
+  motivo_manutencao: "MotivoManutencao"
+  equipamento: "Equipamento"
+  localizacao: "Localizacao"

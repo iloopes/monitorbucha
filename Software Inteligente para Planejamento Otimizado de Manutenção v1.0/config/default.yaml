@@ -1,0 +1,146 @@
+# Configuração geral do sistema
+
+# Informações do sistema
+system:
+  name: "Sistema Inteligente para Planejamento Otimizado de Manutenção"
+  version: "2.0.0"
+  trl_level: 9
+  description: "Sistema de otimização multi-objetivo para planejamento de manutenção de transformadores"
+
+# Caminhos de dados
+paths:
+  data_input: "data/input"
+  data_output: "data/output"
+  data_examples: "data/examples"
+  config: "config"
+  logs: "logs"
+
+# Configurações de logging
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  date_format: "%Y-%m-%d %H:%M:%S"
+  log_to_file: true
+  log_to_console: true
+  max_bytes: 10485760  # 10 MB
+  backup_count: 5
+
+# Configurações de visualização
+visualization:
+  # Estilo dos gráficos
+  style: "seaborn-v0_8-darkgrid"
+
+  # DPI para salvamento de imagens
+  dpi: 300
+
+  # Tamanho padrão das figuras (polegadas)
+  default_figsize: [12, 8]
+
+  # Colormap padrão
+  colormap: "viridis"
+
+  # Formatos de salvamento
+  save_formats: ["png", "pdf"]
+
+  # Fonte
+  font:
+    family: "sans-serif"
+    size: 10
+
+# Configurações de dados
+data:
+  # Separador decimal para CSV
+  decimal_separator: ","
+
+  # Separador de campos para CSV
+  field_separator: ","
+
+  # Encoding padrão
+  encoding: "utf-8"
+
+  # Formato de data
+  date_format: "%Y-%m-%d"
+
+  # Formato de data e hora
+  datetime_format: "%Y-%m-%d %H:%M:%S"
+
+# Configurações do modelo de Markov
+markov:
+  # Número de estados
+  n_states: 5
+
+  # Nomes dos estados
+  state_names:
+    - "Normal"
+    - "Degradado 1"
+    - "Degradado 2"
+    - "Degradado 3"
+    - "Falha"
+
+  # Estado absorvente
+  absorbing_state: 4  # Falha
+
+# Configurações de custos (valores padrão se não especificado nos dados)
+costs:
+  # Custo base de manutenção (R$)
+  base_maintenance_cost: 500.0
+
+  # Taxa de decaimento do custo com o tempo (por dia)
+  cost_decay_rate: 0.05
+
+  # Multiplicador de custo por estado
+  state_multipliers:
+    normal: 1.0
+    degradado1: 1.5
+    degradado2: 2.0
+    degradado3: 3.0
+    falha: 5.0
+
+# Configurações de indisponibilidade (valores padrão em horas)
+unavailability:
+  default_hours:
+    normal: 2.0
+    degradado1: 4.0
+    degradado2: 8.0
+    degradado3: 16.0
+    falha: 48.0
+
+# Configurações de otimização
+optimization:
+  # Usar configurações de nsga_params.yaml
+  use_nsga_params: true
+
+  # Número de soluções da fronteira de Pareto a exibir
+  top_solutions_count: 10
+
+  # Critério de seleção da melhor solução
+  # opções: "min_cost", "min_unavailability", "balanced", "knee_point"
+  selection_criterion: "knee_point"
+
+# Configurações de processamento de sensores
+sensors:
+  # Frequência de medição (horas)
+  measurement_frequency: 1
+
+  # Janela de agregação (horas)
+  aggregation_window: 24
+
+  # Método de agregação
+  aggregation_method: "mean"  # mean, median, max, min
+
+  # Tratamento de valores faltantes
+  missing_values_strategy: "interpolate"  # interpolate, forward_fill, drop
+
+# Configurações de relatórios
+reports:
+  # Incluir gráficos nos relatórios
+  include_plots: true
+
+  # Incluir estatísticas detalhadas
+  include_statistics: true
+
+  # Formato de números (casas decimais)
+  decimal_places: 2
+
+  # Idioma
+  language: "pt-br"  # pt-br, en

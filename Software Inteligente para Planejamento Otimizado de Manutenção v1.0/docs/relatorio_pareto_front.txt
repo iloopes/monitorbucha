@@ -1,0 +1,24 @@
+
+================================================================================
+RELATORIO - FRONTEIRA DE PARETO
+================================================================================
+
+Total de Soluções Não-Dominadas: 117
+--------------------------------------------------------------------------------
+
+CUSTO ESPERADO (R$):
+  Mínimo: R$ 104.43
+  Máximo: R$ 600.00
+  Média:  R$ 188.74
+  Mediana: R$ 129.16
+  Desvio Padrão: R$ 121.13
+
+INDISPONIBILIDADE (%):
+  Mínimo: 0.00%
+  Máximo: 4.80%
+  Média:  2.17%
+  Mediana: 2.06%
+  Desvio Padrão: 1.37%
+
+CORRELACÃO ENTRE OBJETIVOS: -0.7818
+  Interpretação: FRACA relação positiva

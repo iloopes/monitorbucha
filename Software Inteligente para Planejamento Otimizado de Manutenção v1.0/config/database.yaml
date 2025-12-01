@@ -1,0 +1,42 @@
+# Configuração do banco de dados SQL Server
+
+sqlserver:
+  # Servidor SQL Server (instância nomeada)
+  server: "DESKTOP-0L1FQAQ\\KUZUSHI"
+
+  # Nome do banco de dados
+  database: "MaintenanceDB"
+
+  # Autenticação Windows (recomendado)
+  trusted_connection: true
+
+  # Se trusted_connection = false, use username e password
+  username: ""
+  password: ""
+
+  # Driver ODBC (certifique-se de que está instalado)
+  driver: "ODBC Driver 17 for SQL Server"
+
+  # Configurações de conexão
+  connection_timeout: 30
+  command_timeout: 60
+
+  # Pool de conexões
+  pool_size: 5
+  max_overflow: 10
+
+# Configurações de inserção em lote
+batch_insert:
+  # Tamanho do lote para inserção
+  batch_size: 1000
+
+  # Usar transações
+  use_transactions: true
+
+# Configurações de backup
+backup:
+  # Diretório para backups
+  backup_dir: "backups/"
+
+  # Manter backups por X dias
+  retention_days: 30

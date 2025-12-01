@@ -1,0 +1,123 @@
+# Limiares de classificação de estado de saúde dos equipamentos
+
+# Limiares para buchas de transformador
+bushings:
+  # Corrente de fuga (mA)
+  corrente_fuga:
+    normal:
+      max: 0.5
+      description: "Operação normal, sem sinais de degradação"
+
+    degradado1:
+      min: 0.5
+      max: 1.0
+      description: "Degradação leve, monitoramento recomendado"
+
+    degradado2:
+      min: 1.0
+      max: 2.0
+      description: "Degradação moderada, atenção necessária"
+
+    degradado3:
+      min: 2.0
+      max: 5.0
+      description: "Degradação severa, manutenção urgente"
+
+    falha:
+      min: 5.0
+      description: "Estado crítico, risco de falha iminente"
+
+  # Tangente Delta (%)
+  tg_delta:
+    normal:
+      max: 0.5
+      description: "Isolamento em boas condições"
+
+    degradado1:
+      min: 0.5
+      max: 1.0
+      description: "Início de degradação do isolamento"
+
+    degradado2:
+      min: 1.0
+      max: 2.0
+      description: "Degradação significativa do isolamento"
+
+    degradado3:
+      min: 2.0
+      max: 3.0
+      description: "Isolamento severamente degradado"
+
+    falha:
+      min: 3.0
+      description: "Falha do isolamento"
+
+  # Capacitância (variação percentual em relação ao nominal)
+  capacitancia:
+    normal:
+      variation_max: 5
+      description: "Variação aceitável"
+
+    degradado1:
+      variation_min: 5
+      variation_max: 10
+      description: "Variação moderada"
+
+    degradado2:
+      variation_min: 10
+      variation_max: 15
+      description: "Variação preocupante"
+
+    degradado3:
+      variation_min: 15
+      variation_max: 25
+      description: "Variação severa"
+
+    falha:
+      variation_min: 25
+      description: "Variação crítica"
+
+# Limiares para análise DGA (Dissolved Gas Analysis)
+dga:
+  # Estados baseados em concentrações de gases (ppm)
+  estados:
+    normal: 0
+    degradado1: 1
+    degradado2: 2
+    degradado3: 3
+    falha: 4
+
+# Limiares para análise Físico-Química
+fisico_quimica:
+  # Estados baseados em propriedades físico-químicas
+  estados:
+    normal: 0
+    degradado1: 1
+    degradado2: 2
+    degradado3: 3
+    falha: 4
+
+# Configurações de degradação
+degradation:
+  # Janela de tempo para cálculo de taxa de degradação (dias)
+  time_window: 7
+
+  # Número mínimo de pontos para calcular tendência
+  min_data_points: 3
+
+  # Método de regressão
+  regression_method: "linear"  # opções: "linear", "polynomial", "exponential"
+
+  # Grau do polinômio (se método = "polynomial")
+  polynomial_degree: 1
+
+# Configurações de criticidade
+criticality:
+  # Pesos para cálculo de score de criticidade
+  weights:
+    corrente_atual: 1.0
+    taxa_degradacao: 100.0
+    tempo_em_degradado: 0.5
+
+  # Número de equipamentos críticos a serem destacados
+  top_critical_count: 5
