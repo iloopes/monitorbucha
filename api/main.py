@@ -121,6 +121,7 @@ class AnomalyDetectionRequest(BaseModel):
     save_to_database: bool = True
     randomize_anomalies: bool = False
     anomaly_type: str = "auto"  # auto, temperature, humidity, vibration, pressure, mixed
+    window_size: Optional[int] = None  # Tamanho da janela (deve ser igual ao treinamento)
 
 
 # Estado global do gerador
@@ -1052,7 +1053,8 @@ async def detect_anomalies(request: AnomalyDetectionRequest):
             threshold_percentile=request.threshold_percentile,
             save_to_database=request.save_to_database,
             randomize_anomalies=request.randomize_anomalies,
-            anomaly_type=request.anomaly_type
+            anomaly_type=request.anomaly_type,
+            window_size=request.window_size
         )
 
         return result

@@ -174,7 +174,8 @@ class AnomalyManager:
         threshold_percentile: float = 95.0,
         save_to_database: bool = True,
         randomize_anomalies: bool = False,
-        anomaly_type: str = "auto"
+        anomaly_type: str = "auto",
+        window_size: Optional[int] = None
     ) -> Dict:
         """
         Detecta anomalias nos dados atuais.
@@ -185,6 +186,7 @@ class AnomalyManager:
             save_to_database: Salvar resultados no banco
             randomize_anomalies: Ativar aleatorização de tipos de anomalias
             anomaly_type: Tipo de anomalia (auto, temperature, humidity, vibration, pressure, mixed)
+            window_size: Tamanho da janela (deve ser igual ao treinamento)
 
         Returns:
             Dicionário com resultados
@@ -218,9 +220,13 @@ class AnomalyManager:
             data = sensor_data[numeric_cols].fillna(method='ffill').fillna(method='bfill')
             data.index = sensor_data['timestamp']
 
+            # Usar window_size padrão (168h) se não fornecido
+            detect_window_size = window_size if window_size is not None else 168
+
             # Detectar
             detections = self.autoencoder.detect(
                 data=pd.DataFrame(data),
+                window_size=detect_window_size,
                 threshold_percentile=threshold_percentile
             )
 

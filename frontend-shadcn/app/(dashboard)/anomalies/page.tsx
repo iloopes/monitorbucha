@@ -119,7 +119,8 @@ export default function AnomaliesPage() {
       const response = await api.post('/anomaly/detect', {
         model_name: 'autoencoder_model',
         threshold_percentile: 95,
-        save_to_database: true
+        save_to_database: true,
+        window_size: trainingWindowSize
       })
 
       if (response.data.status === 'success') {
