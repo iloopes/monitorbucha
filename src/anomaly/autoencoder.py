@@ -270,12 +270,20 @@ class MovingWindowAutoEncoder:
         q_threshold = np.percentile(reconstruction_errors, threshold_percentile)
         t2_threshold = np.percentile(distances_latent, threshold_percentile)
 
+        logger.info(f"Q threshold ({threshold_percentile}º percentil): {q_threshold:.6f}")
+        logger.info(f"T2 threshold ({threshold_percentile}º percentil): {t2_threshold:.6f}")
+        logger.info(f"Q - Min: {min(reconstruction_errors):.6f}, Max: {max(reconstruction_errors):.6f}, Mean: {np.mean(reconstruction_errors):.6f}")
+        logger.info(f"T2 - Min: {min(distances_latent):.6f}, Max: {max(distances_latent):.6f}, Mean: {np.mean(distances_latent):.6f}")
+
         # Suavizar
         q_smooth = pd.Series(reconstruction_errors).rolling(window=rolling_window, min_periods=1).median().values
         t2_smooth = pd.Series(distances_latent).rolling(window=rolling_window, min_periods=1).median().values
 
         # Detectar anomalias
         anomalies = (q_smooth > q_threshold) | (t2_smooth > t2_threshold)
+
+        logger.info(f"Valores acima de Q threshold: {(q_smooth > q_threshold).sum()}")
+        logger.info(f"Valores acima de T2 threshold: {(t2_smooth > t2_threshold).sum()}")
 
         # Criar resultado
         result = pd.DataFrame({

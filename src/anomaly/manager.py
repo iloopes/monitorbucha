@@ -220,8 +220,12 @@ class AnomalyManager:
             data = sensor_data[numeric_cols].fillna(method='ffill').fillna(method='bfill')
             data.index = sensor_data['timestamp']
 
+            logger.info(f"Dados carregados: {len(data)} registros, {len(numeric_cols)} features")
+            logger.info(f"Features: {list(numeric_cols)}")
+
             # Usar window_size padrão (168h) se não fornecido
             detect_window_size = window_size if window_size is not None else 168
+            logger.info(f"Detectando com window_size={detect_window_size}h, threshold_percentile={threshold_percentile}")
 
             # Detectar
             detections = self.autoencoder.detect(
@@ -229,6 +233,8 @@ class AnomalyManager:
                 window_size=detect_window_size,
                 threshold_percentile=threshold_percentile
             )
+
+            logger.info(f"Detecção retornou {len(detections)} linhas")
 
             # Adicionar tipos aleatórios de anomalias se solicitado
             if randomize_anomalies and not detections.empty:
