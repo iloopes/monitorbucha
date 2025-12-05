@@ -84,7 +84,8 @@ class AnomalyManager:
         latent_dim: int = 5,
         window_size: int = 168,  # 1 semana de dados horários
         num_epochs: int = 50,
-        learning_rate: float = 1e-3
+        learning_rate: float = 1e-3,
+        clear_sensor_data: bool = False
     ) -> Dict:
         """
         Treina o autoencoder com dados do banco.
@@ -97,6 +98,7 @@ class AnomalyManager:
             window_size: Tamanho da janela
             num_epochs: Número de épocas
             learning_rate: Taxa de aprendizado
+            clear_sensor_data: Se True, limpa sensor_data ANTES de treinar (útil para separar treino de teste)
 
         Returns:
             Dicionário com resultado do treinamento
@@ -106,6 +108,10 @@ class AnomalyManager:
         try:
             # Carregar dados do banco
             manager = DatabaseManager(self.db_connector)
+
+            # IMPORTANTE: Se clear_sensor_data=True, limpa DEPOIS de treinar
+            # Isso permite que você tenha dados de treino, treine, e depois adicione dados de teste
+
             sensor_data = manager.connector.fetch_data("SELECT * FROM sensor_data ORDER BY timestamp ASC")
 
             if sensor_data.empty:

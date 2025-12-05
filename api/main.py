@@ -1111,6 +1111,52 @@ async def list_anomalies(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.delete("/api/data/clear-sensor-data")
+async def clear_sensor_data():
+    """
+    Limpa a tabela sensor_data (útil para separar dados de treinamento de teste).
+    """
+    if not db_connector:
+        raise HTTPException(
+            status_code=400,
+            detail="Banco de dados não configurado"
+        )
+
+    try:
+        db_connector.execute_query("DELETE FROM sensor_data")
+        logger.info("Tabela sensor_data limpa")
+        return {
+            "status": "success",
+            "message": "Tabela sensor_data foi limpa"
+        }
+    except Exception as e:
+        logger.error(f"Erro ao limpar sensor_data: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/data/sensor-data-count")
+async def get_sensor_data_count():
+    """
+    Retorna a quantidade de registros em sensor_data.
+    """
+    if not db_connector:
+        raise HTTPException(
+            status_code=400,
+            detail="Banco de dados não configurado"
+        )
+
+    try:
+        count_df = db_connector.fetch_data("SELECT COUNT(*) as cnt FROM sensor_data")
+        count = int(count_df.iloc[0]['cnt']) if not count_df.empty else 0
+        return {
+            "status": "success",
+            "sensor_data_count": count
+        }
+    except Exception as e:
+        logger.error(f"Erro ao contar sensor_data: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/anomaly/summary")
 async def anomaly_summary(
     equipment_id: Optional[str] = Query(None),
